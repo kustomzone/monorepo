@@ -10,7 +10,7 @@
   ],
   "engines": {
     "yarn": "^1.17.0",
-    "node": "^10.16.3"
+    "node": "^10.17.0"
   },
   "directories": {
     "test": "test"

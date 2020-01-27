@@ -171,7 +171,7 @@ jobs:
     resource_class: medium
     working_directory: /home/circleci/project
     docker:
-      - image: circleci/node:10.16.3
+      - image: circleci/node:10.17.0
     environment:
       FIREBASE_PREFIX: << pipeline.git.branch >>-1
       USE_VIRTUAL_FUNDING: 'FALSE'
@@ -204,7 +204,7 @@ jobs:
     resource_class: medium
     working_directory: /home/circleci/project
     docker:
-      - image: circleci/node:10.16.3
+      - image: circleci/node:10.17.0
       - image: circleci/postgres:12.0-alpine
         environment:
           POSTGRES_USER: root

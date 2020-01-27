@@ -7,7 +7,7 @@
   "license": "MIT",
   "private": true,
   "engines": {
-    "node": "^10.16.3"
+    "node": "^10.17.0"
   },
   "dependencies": {
     "@statechannels/client-api-schema": "0.0.1",
