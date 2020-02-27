@@ -5,7 +5,8 @@ import {ChannelWallet, logTransition} from '../channel-wallet';
 import {Participant} from '../store/types';
 import {Chain} from '../chain';
 import {
-  isNotification,
+  isMessageQueued,
+  isPushMessageResponse,
   PushMessageRequest,
   JoinChannelRequest,
   CreateChannelRequest,
@@ -42,9 +43,6 @@ export class Player {
   get workflowState(): string | object | undefined {
     return this.channelWallet.workflows[0]?.machine.state.value;
   }
-  get destination() {
-    return '0x63e3fb11830c01ac7c9c64091c14bb6cbaac9ac7';
-  }
   get participant(): Participant {
     return {
       participantId: this.signingAddress,
@@ -55,17 +53,35 @@ export class Player {
   get participantId(): string {
     return this.signingAddress;
   }
-  constructor(privateKey: string, private id: string, chain: Chain) {
+  constructor(
+    privateKey: string,
+    private id: string,
+    chain: Chain,
+    public destination: string = '0x63e3fb11830c01ac7c9c64091c14bb6cbaac9ac7'
+  ) {
     this.privateKey = privateKey;
     this.store = new MemoryStore([this.privateKey], chain);
     this.messagingService = new MessagingService(this.store);
     this.channelWallet = new ChannelWallet(this.store, this.messagingService, id);
   }
+
+  // 'app messages' exclude MessageQueued and PushMessage response
+  onAppMessage(callback: (message: any) => void) {
+    this.channelWallet.onSendMessage(message => {
+      if (!isMessageQueued(message) && !isPushMessageResponse(message)) {
+        callback(message);
+      }
+    });
+  }
+
+  pushMessage(m: any) {
+    this.channelWallet.pushMessage(m);
+  }
 }
 
 export function hookUpMessaging(playerA: Player, playerB: Player) {
   playerA.channelWallet.onSendMessage(message => {
-    if (isNotification(message) && message.method === 'MessageQueued') {
+    if (isMessageQueued(message)) {
       const pushMessageRequest = generatePushMessage(
         message.params,
         playerB.participantId,
@@ -79,7 +95,7 @@ export function hookUpMessaging(playerA: Player, playerB: Player) {
   });
 
   playerB.channelWallet.onSendMessage(message => {
-    if (isNotification(message) && message.method === 'MessageQueued') {
+    if (isMessageQueued(message)) {
       const pushMessageRequest = generatePushMessage(
         message.params,
         playerA.participantId,

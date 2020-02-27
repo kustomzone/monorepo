@@ -196,10 +196,25 @@ export function isResponse(message: Response | Request | Notification): message 
   return 'id' in message && 'result' in message;
 }
 
+export function isPushMessageResponse(
+  message: Response | Request | Notification
+): message is PushMessageResponse {
+  return (
+    isResponse(message) &&
+    (message.result === {success: true} || message.result === {success: false})
+  );
+}
+
 export function isNotification(
   message: Response | Request | Notification
 ): message is Notification {
   return !('id' in message);
+}
+
+export function isMessageQueued(
+  message: Response | Request | Notification
+): message is MessageQueuedNotification {
+  return isNotification(message) && message.method === 'MessageQueued';
 }
 export function isRequest(message: Response | Request | Notification): message is Request {
   return 'id' in message && 'params' in message;
