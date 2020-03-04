@@ -205,7 +205,9 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
 
     // If the wallet queues a message, send it across the wire
     this.channelClient.onMessageQueued((message: Message) => {
-      wire.paidStreamingExtension.sendMessage(JSON.stringify(message));
+      if (message.recipient === wire.paidStreamingExtension.peerAccount) {
+        wire.paidStreamingExtension.sendMessage(JSON.stringify(message));
+      }
     });
 
     // If a channel is proposed, join it
@@ -273,22 +275,20 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
           this.jumpStart(torrent, wire);
           break;
         case PaidStreamingExtensionNotices.MESSAGE:
-          await this.channelClient.pushMessage(JSON.parse(data.message));
-          turnNum = Number(JSON.parse(data.message).data.turnNum);
-          channelId = JSON.parse(data.message).data.channelId;
-          if (
-            JSON.parse(data.message).recipient === this.pseAccount &&
-            turnNum >= 3 &&
-            turnNum % 2 === 1
-          ) {
-            // if message sent to me (seeding), and the final PostFS or a payment
-            await this.loadFunds(
-              torrent.infoHash,
-              wire.paidStreamingExtension.peerAccount,
-              channelId
-            );
-            await this.channelClient.acceptPayment(this.channelClient.openChannels[channelId]);
-            this.unblockPeer(torrent.infoHash, wire, wire.paidStreamingExtension.peerAccount);
+          if (JSON.parse(data.message).recipient === this.pseAccount) {
+            await this.channelClient.pushMessage(JSON.parse(data.message));
+            turnNum = Number(JSON.parse(data.message).data.turnNum);
+            channelId = JSON.parse(data.message).data.channelId;
+            if (turnNum >= 3 && turnNum % 2 === 1) {
+              // if the final PostFS or a payment
+              await this.loadFunds(
+                torrent.infoHash,
+                wire.paidStreamingExtension.peerAccount,
+                channelId
+              );
+              await this.channelClient.acceptPayment(this.channelClient.openChannels[channelId]);
+              this.unblockPeer(torrent.infoHash, wire, wire.paidStreamingExtension.peerAccount);
+            }
           }
           break;
         default:
