@@ -6,7 +6,7 @@ import {DownloadInfo} from './download-info/DownloadInfo';
 import {DownloadLink} from './download-link/DownloadLink';
 import {MagnetLinkButton} from './magnet-link-button/MagnetLinkButton';
 import './TorrentInfo.scss';
-import {UploadInfo} from './upload-info/UploadInfo';
+import {WiresList} from '../wires-list/WiresList';
 
 export type TorrentInfoProps = {torrent: Torrent; peers?: TorrentPeers};
 
@@ -31,7 +31,9 @@ const TorrentInfo: React.FC<TorrentInfoProps> = ({torrent, peers}) => {
       {DownloadingStatuses.includes(torrent.status) ? (
         <DownloadInfo torrent={torrent} />
       ) : (
-        UploadingStatuses.includes(torrent.status) && <UploadInfo torrent={torrent} peers={peers} />
+        UploadingStatuses.includes(torrent.status) && (
+          <WiresList torrent={torrent} channelCache={{}} />
+        )
       )}
       {!torrent.originalSeed && <DownloadLink torrent={torrent} />}
     </>
