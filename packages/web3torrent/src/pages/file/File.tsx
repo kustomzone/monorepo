@@ -10,7 +10,7 @@ import {parseMagnetURL} from '../../utils/magnet';
 import torrentStatusChecker from '../../utils/torrent-status-checker';
 import {useInterval} from '../../utils/useInterval';
 import './File.scss';
-import {ChannelList} from '../../components/channel-list/ChannelList';
+import {WiresList} from '../../components/wires-list/WiresList';
 
 const getTorrentAndPeersData: (
   setTorrent: React.Dispatch<React.SetStateAction<Torrent>>,
@@ -107,7 +107,7 @@ const File: React.FC<RouteComponentProps & Props> = props => {
       ) : (
         false
       )}
-      <ChannelList />
+      <WiresList torrent={torrent} channelCache={{}} />
     </section>
   );
 };
