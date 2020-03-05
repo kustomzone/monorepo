@@ -1,7 +1,7 @@
 import React from 'react';
 import {ChannelContext, ChannelState} from '../../clients/payment-channel-client';
 import './ChannelList.scss';
-import {formatUnits} from 'ethers/utils';
+import {utils} from 'ethers';
 
 class ChannelList extends React.Component {
   static contextType = ChannelContext;
@@ -25,7 +25,7 @@ class ChannelList extends React.Component {
                   <td className="channel-address">{channel.channelId}</td>
                   <td className="channel-address">{channel.payer}</td>
                   <td className="amount-cell">
-                    {formatUnits(channel.beneficiaryBalance, 'wei')} wei
+                    {utils.formatUnits(channel.beneficiaryBalance, 'wei')} wei
                   </td>
                 </tr>
               ))}
@@ -45,7 +45,9 @@ class ChannelList extends React.Component {
                 <tr className={'channel'} key={channel.channelId}>
                   <td className="channel-address">{channel.channelId}</td>
                   <td className="channel-address">{channel.beneficiary}</td>
-                  <td className="amount-cell">{formatUnits(channel.payerBalance, 'wei')} wei</td>
+                  <td className="amount-cell">
+                    {utils.formatUnits(channel.payerBalance, 'wei')} wei
+                  </td>
                 </tr>
               ))}
           </tbody>
