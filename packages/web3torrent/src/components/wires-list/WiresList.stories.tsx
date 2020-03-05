@@ -3,14 +3,14 @@ import {number, withKnobs} from '@storybook/addon-knobs';
 import {storiesOf} from '@storybook/react';
 import React from 'react';
 import {WiresList} from './WiresList';
-import './ChannelList.scss';
+import './WiresList.scss';
 import {Torrent} from '../../types';
 import {ChannelState} from '../../clients/payment-channel-client';
 
 storiesOf('Web3Torrent', module)
   .addDecorator(withActions('click'))
   .addDecorator(withKnobs())
-  .add('ChannelList', () => (
+  .add('WiresList', () => (
     <WiresList
       torrent={
         {
