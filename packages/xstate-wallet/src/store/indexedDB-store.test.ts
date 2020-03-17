@@ -1,12 +1,14 @@
+/* eslint-disable jest/no-disabled-tests */
 import {XstateStore} from './store';
 import {State, Objective} from './types';
 import {bigNumberify, BigNumber} from 'ethers/utils';
 import {Wallet} from 'ethers';
 import {calculateChannelId, signState} from './state-utils';
 import {NETWORK_ID, CHALLENGE_DURATION} from '../constants';
-import {ChannelStoreEntry} from './channel-store-entry';
+import {ChannelStoreEntry} from './memory-channel-storage';
 import {simpleEthAllocation} from '../utils/outcome';
-import {MemoryBackend as Backend} from './memory-backend';
+import {IndexedDBBackend as Backend} from './indexedDB-backend';
+require('fake-indexeddb/auto');
 
 const {address: aAddress, privateKey: aPrivateKey} = new Wallet(
   '0x95942b296854c97024ca3145abef8930bf329501b718c0f66d57dba596ff1318'
@@ -90,7 +92,7 @@ test('newObjectiveFeed', async () => {
   const store = await aStore();
 
   const outputs: Objective[] = [];
-  store.objectiveFeed.subscribe(x => outputs.push(x));
+  store.newObjectiveFeed.subscribe(x => outputs.push(x));
 
   await store.pushMessage({objectives: [objective]});
   expect(outputs).toEqual([objective]);
