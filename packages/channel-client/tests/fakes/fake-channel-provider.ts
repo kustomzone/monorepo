@@ -2,7 +2,7 @@ import {
   ChannelProviderInterface,
   MethodResponseType,
   MethodRequestType,
-  Method
+  Response
 } from '@statechannels/channel-provider';
 import log = require('loglevel');
 
@@ -33,11 +33,11 @@ type ChannelId = string;
  coming from a non-fake `ChannelClient`.
  */
 export class FakeChannelProvider implements ChannelProviderInterface {
-  protected readonly events: EventEmitter<Method>;
+  protected readonly events: EventEmitter<Response>;
   protected url = '';
   constructor() {
-    this.events = new EventEmitter<Method>();
-    this.events.emit = (method: Method, params: Request): boolean =>
+    this.events = new EventEmitter<Response>();
+    this.events.emit = (method: Response, params: Request): boolean =>
       this.events.emit(method, params); // annotate the input parameters
   }
 
@@ -88,11 +88,11 @@ export class FakeChannelProvider implements ChannelProviderInterface {
     }
   }
 
-  on(event: Method, callback: ListenerFn): void {
+  on(event: Response, callback: ListenerFn): void {
     this.events.on(event, callback);
   }
 
-  off(event: Method): void {
+  off(event: Response): void {
     this.events.off(event);
   }
 

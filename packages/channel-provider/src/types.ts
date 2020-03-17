@@ -126,8 +126,8 @@ export type MethodRequestType =
 export interface ChannelProviderInterface {
   enable(url?: string): Promise<void>;
   send(request: MethodRequestType): Promise<MethodResponseType[MethodRequestType['method']]>;
-  on(event: string, callback: ListenerFn): void;
-  off(event: string, callback?: ListenerFn): void;
-  subscribe(subscriptionType: string, params?: any): Promise<string>;
+  on(event: Response, callback: ListenerFn): void;
+  off(event: Response, callback?: ListenerFn): void;
+  subscribe(subscriptionType: Response, params?: any): Promise<string>;
   unsubscribe(subscriptionId: string): Promise<boolean>;
 }

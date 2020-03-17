@@ -6,7 +6,6 @@ import {
   isJsonRpcNotification,
   MethodRequestType,
   MethodResponseType,
-  Method,
   Response
 } from './types';
 import {UIService} from './ui-service';
@@ -44,6 +43,7 @@ class ChannelProvider implements ChannelProviderInterface {
     this.messaging.setUrl(this.url);
 
     await this.ui.mount();
+    this.events.emit('Connect' as Response); // TODO remove
   }
 
   async send(request: MethodRequestType): Promise<MethodResponseType[MethodRequestType['method']]> {
