@@ -21,6 +21,7 @@ class ChannelProvider implements ChannelProviderInterface {
   constructor() {
     this.events = new EventEmitter<Response>();
     this.events.emit = (method: Response, params: Request) => this.events.emit(method, params); // annotate the input parameters
+    // TODO use a conditional type, or otherwise couple method with params
     this.ui = new UIService();
     this.messaging = new MessagingService();
     this.subscriptions = {
@@ -81,23 +82,25 @@ class ChannelProvider implements ChannelProviderInterface {
 
   protected async onMessage(event: MessageEvent) {
     const message = event.data;
-    if (!message.jsonrpc) {
+  if (!message.jsonrpc) {
       return;
     }
 
     if (isJsonRpcNotification(message)) {
-      const method = message.method;
-      MethodResponseType[MethodRequestType[method]
-      this.events.emit(eventName, message);
+      const eventName = message.method as Response;
+      if ((eventName as any) === 'UIUpdate') {
+        this.ui.setVisibility(message.params.showWallet);
+      }
+      this.events.emit(eventName as Response, message);
 
       if (this.subscriptions[eventName]) {
         this.subscriptions[eventName].forEach(s => {
-          this.events.emit(s, message); // TODO remove type assertion
+          this.events.emit((s as Response), message);
         });
       }
     }
   }
-}
+  }}
 const channelProvider = new ChannelProvider();
 
 export {channelProvider};

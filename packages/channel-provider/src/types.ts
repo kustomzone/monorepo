@@ -57,7 +57,7 @@ export interface JsonRpcNotification<NotificationName = Method, NotificationPara
   params: NotificationParams;
 }
 
-export function isJsonRpcNotification(message: any): message is JsonRpcNotification {
+export function isJsonRpcNotification(message: any): message is JsonRpcNotification<any, any> {
   return 'method' in message && !('id' in message);
 }
 
