@@ -1,11 +1,12 @@
 import {
   ChannelProviderInterface,
   MethodResponseType,
-  MethodRequestType
+  MethodRequestType,
+  Method
 } from '@statechannels/channel-provider';
 import log = require('loglevel');
 
-import {EventEmitter, ListenerFn} from 'eventemitter3';
+import EventEmitter, {ListenerFn} from 'eventemitter3';
 import {
   BudgetRequest,
   CloseAndWithdrawParams,
@@ -32,8 +33,13 @@ type ChannelId = string;
  coming from a non-fake `ChannelClient`.
  */
 export class FakeChannelProvider implements ChannelProviderInterface {
-  private events = new EventEmitter();
+  protected readonly events: EventEmitter<Method>;
   protected url = '';
+  constructor() {
+    this.events = new EventEmitter<Method>();
+    this.events.emit = (method: Method, params: Request): boolean =>
+      this.events.emit(method, params); // annotate the input parameters
+  }
 
   playerIndex: Record<ChannelId, 0 | 1> = {};
   opponentIndex: Record<ChannelId, 0 | 1> = {};
@@ -82,11 +88,11 @@ export class FakeChannelProvider implements ChannelProviderInterface {
     }
   }
 
-  on(event: string, callback: ListenerFn): void {
+  on(event: Method, callback: ListenerFn): void {
     this.events.on(event, callback);
   }
 
-  off(event: string): void {
+  off(event: Method): void {
     this.events.off(event);
   }
 

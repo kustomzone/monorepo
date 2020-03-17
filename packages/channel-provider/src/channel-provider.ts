@@ -6,35 +6,29 @@ import {
   isJsonRpcNotification,
   MethodRequestType,
   MethodResponseType,
-  Method
+  Method,
+  Response
 } from './types';
 import {UIService} from './ui-service';
 
 class ChannelProvider implements ChannelProviderInterface {
-  protected readonly events: EventEmitter<Method>;
+  protected readonly events: EventEmitter<Response>;
   protected readonly ui: UIService;
   protected readonly messaging: MessagingService;
-  protected readonly subscriptions: {[key in Method]: string[]};
+  protected readonly subscriptions: {[key in Response]: string[]};
   protected url = '';
 
   constructor() {
-    this.events = new EventEmitter<Method>();
-    this.events.emit = (method: Method, params: Request) => this.events.emit(method, params); // annotate the input parameters
+    this.events = new EventEmitter<Response>();
+    this.events.emit = (method: Response, params: Request) => this.events.emit(method, params); // annotate the input parameters
     this.ui = new UIService();
     this.messaging = new MessagingService();
     this.subscriptions = {
-      CreateChannel: [],
-      UpdateChannel: [],
-      PushMessage: [],
-      CloseChannel: [],
-      JoinChannel: [],
-      GetState: [],
-      GetAddress: [],
-      GetEthereumSelectedAddress: [],
-      ChallengeChannel: [],
-      ApproveBudgetAndFund: [],
-      GetBudget: [],
-      CloseAndWithdraw: []
+      ChannelProposed: [],
+      ChannelUpdated: [],
+      ChannelClosed: [],
+      BudgetUpdated: [],
+      MessageQueued: []
     };
   }
 
@@ -62,14 +56,14 @@ class ChannelProvider implements ChannelProviderInterface {
     return response;
   }
 
-  async subscribe(subscriptionType: Method): Promise<string> {
+  async subscribe(subscriptionType: Response): Promise<string> {
     const subscriptionId = Guid.create().toString();
     this.subscriptions[subscriptionType].push(subscriptionId);
     return subscriptionId;
   }
 
   async unsubscribe(subscriptionId: string): Promise<boolean> {
-    (Object.keys(this.subscriptions) as Method[]).map(e => {
+    (Object.keys(this.subscriptions) as Response[]).map(e => {
       this.subscriptions[e] = this.subscriptions[e]
         ? this.subscriptions[e].filter(s => s !== subscriptionId)
         : [];
@@ -77,11 +71,11 @@ class ChannelProvider implements ChannelProviderInterface {
     return true;
   }
 
-  on(event: Method, callback: EventEmitter.ListenerFn<any>): void {
+  on(event: Response, callback: EventEmitter.ListenerFn<any>): void {
     this.events.on(event, callback);
   }
 
-  off(event: Method, callback?: EventEmitter.ListenerFn<any> | undefined): void {
+  off(event: Response, callback?: EventEmitter.ListenerFn<any> | undefined): void {
     this.events.off(event, callback);
   }
 
@@ -92,12 +86,13 @@ class ChannelProvider implements ChannelProviderInterface {
     }
 
     if (isJsonRpcNotification(message)) {
-      const eventName = message.method;
+      const method = message.method;
+      MethodResponseType[MethodRequestType[method]
       this.events.emit(eventName, message);
 
       if (this.subscriptions[eventName]) {
         this.subscriptions[eventName].forEach(s => {
-          this.events.emit(s as Method, message); // TODO remove type assertion
+          this.events.emit(s, message); // TODO remove type assertion
         });
       }
     }

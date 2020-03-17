@@ -21,6 +21,7 @@ import {
   ChallengeChannelRequest,
   GetBudgetResponse,
   GetBudgetRequest,
+  Notification,
   ApproveBudgetAndFundResponse,
   ApproveBudgetAndFundRequest
 } from '@statechannels/client-api-schema';
@@ -85,6 +86,8 @@ export type MethodResponseType = {
   GetBudget: GetBudgetResponse['result'];
   CloseAndWithdraw: any; // TODO: Add types
 };
+
+export type Response = Notification['method']; // TODO extract directly from schema
 
 export type Method =
   | 'CreateChannel'
