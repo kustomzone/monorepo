@@ -82,7 +82,7 @@ class ChannelProvider implements ChannelProviderInterface {
 
   protected async onMessage(event: MessageEvent) {
     const message = event.data;
-  if (!message.jsonrpc) {
+    if (!message.jsonrpc) {
       return;
     }
 
@@ -95,12 +95,12 @@ class ChannelProvider implements ChannelProviderInterface {
 
       if (this.subscriptions[eventName]) {
         this.subscriptions[eventName].forEach(s => {
-          this.events.emit((s as Response), message);
+          this.events.emit(s as Response, message);
         });
       }
     }
   }
-  }}
+}
 const channelProvider = new ChannelProvider();
 
 export {channelProvider};
