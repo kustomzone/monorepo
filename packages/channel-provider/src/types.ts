@@ -50,7 +50,7 @@ export type JsonRpcError = {
   };
 };
 
-export interface JsonRpcNotification<NotificationName = string, NotificationParams = any> {
+export interface JsonRpcNotification<NotificationName = Method, NotificationParams = Request> {
   jsonrpc: '2.0';
   method: NotificationName;
   params: NotificationParams;
@@ -86,7 +86,7 @@ export type MethodResponseType = {
   CloseAndWithdraw: any; // TODO: Add types
 };
 
-type Method =
+export type Method =
   | 'CreateChannel'
   | 'UpdateChannel'
   | 'PushMessage'

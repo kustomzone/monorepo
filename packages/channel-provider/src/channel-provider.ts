@@ -5,22 +5,37 @@ import {
   ChannelProviderInterface,
   isJsonRpcNotification,
   MethodRequestType,
-  MethodResponseType
+  MethodResponseType,
+  Method
 } from './types';
 import {UIService} from './ui-service';
 
 class ChannelProvider implements ChannelProviderInterface {
-  protected readonly events: EventEmitter;
+  protected readonly events: EventEmitter<Method>;
   protected readonly ui: UIService;
   protected readonly messaging: MessagingService;
-  protected readonly subscriptions: {[eventName: string]: string[]};
+  protected readonly subscriptions: {[key in Method]: string[]};
   protected url = '';
 
   constructor() {
-    this.events = new EventEmitter();
+    this.events = new EventEmitter<Method>();
+    this.events.emit = (method: Method, params: Request) => this.events.emit(method, params); // annotate the input parameters
     this.ui = new UIService();
     this.messaging = new MessagingService();
-    this.subscriptions = {};
+    this.subscriptions = {
+      CreateChannel: [],
+      UpdateChannel: [],
+      PushMessage: [],
+      CloseChannel: [],
+      JoinChannel: [],
+      GetState: [],
+      GetAddress: [],
+      GetEthereumSelectedAddress: [],
+      ChallengeChannel: [],
+      ApproveBudgetAndFund: [],
+      GetBudget: [],
+      CloseAndWithdraw: []
+    };
   }
 
   async enable(url?: string) {
@@ -34,8 +49,6 @@ class ChannelProvider implements ChannelProviderInterface {
     this.messaging.setUrl(this.url);
 
     await this.ui.mount();
-
-    this.events.emit('Connect');
   }
 
   async send(request: MethodRequestType): Promise<MethodResponseType[MethodRequestType['method']]> {
@@ -49,17 +62,14 @@ class ChannelProvider implements ChannelProviderInterface {
     return response;
   }
 
-  async subscribe(subscriptionType: string): Promise<string> {
+  async subscribe(subscriptionType: Method): Promise<string> {
     const subscriptionId = Guid.create().toString();
-    if (!this.subscriptions[subscriptionType]) {
-      this.subscriptions[subscriptionType] = [];
-    }
     this.subscriptions[subscriptionType].push(subscriptionId);
     return subscriptionId;
   }
 
   async unsubscribe(subscriptionId: string): Promise<boolean> {
-    Object.keys(this.subscriptions).map(e => {
+    (Object.keys(this.subscriptions) as Method[]).map(e => {
       this.subscriptions[e] = this.subscriptions[e]
         ? this.subscriptions[e].filter(s => s !== subscriptionId)
         : [];
@@ -67,11 +77,11 @@ class ChannelProvider implements ChannelProviderInterface {
     return true;
   }
 
-  on(event: string, callback: EventEmitter.ListenerFn<any>): void {
+  on(event: Method, callback: EventEmitter.ListenerFn<any>): void {
     this.events.on(event, callback);
   }
 
-  off(event: string, callback?: EventEmitter.ListenerFn<any> | undefined): void {
+  off(event: Method, callback?: EventEmitter.ListenerFn<any> | undefined): void {
     this.events.off(event, callback);
   }
 
@@ -83,14 +93,11 @@ class ChannelProvider implements ChannelProviderInterface {
 
     if (isJsonRpcNotification(message)) {
       const eventName = message.method;
-      if (eventName === 'UIUpdate') {
-        this.ui.setVisibility(message.params.showWallet);
-      }
       this.events.emit(eventName, message);
 
       if (this.subscriptions[eventName]) {
         this.subscriptions[eventName].forEach(s => {
-          this.events.emit(s, message);
+          this.events.emit(s as Method, message); // TODO remove type assertion
         });
       }
     }
