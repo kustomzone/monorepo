@@ -17,6 +17,22 @@ export interface AssetBudget {
 }
 import {MemoryChannelStoreEntry} from './memory-channel-storage';
 
+export interface SiteBudget {
+  site: string;
+  hubAddress: string;
+  forAsset: Record<string, AssetBudget>;
+}
+export interface BudgetItem {
+  playerAmount: BigNumber;
+  hubAmount: BigNumber;
+}
+export interface AssetBudget {
+  assetHolderAddress: string;
+  pending: BudgetItem;
+  free: BudgetItem;
+  inUse: BudgetItem;
+  direct: BudgetItem;
+}
 export interface Participant {
   participantId: string;
   signingAddress: string;

@@ -1,15 +1,19 @@
-import {MemoryStore, Funding} from '../../store/memory-store';
 import {MemoryChannelStoreEntry} from '../../store/memory-channel-storage';
 import {SignedState} from '../../store/types';
 import {hashState} from '../../store/state-utils';
 import {Guid} from 'guid-typescript';
+import {XstateStore, Funding, Store} from '../../store';
 
-export class TestStore extends MemoryStore {
+export class TestStore extends XstateStore implements Store {
   public _channelLocks: Record<string, Guid>;
-  public createEntry(signedState: SignedState, funding?: Funding): MemoryChannelStoreEntry {
+  public async createEntry(
+    signedState: SignedState,
+    funding?: Funding
+  ): Promise<MemoryChannelStoreEntry> {
+    const address = await this.getAddress();
     const myIndex = signedState.participants
       .map(p => p.signingAddress)
-      .findIndex(a => a === this.getAddress());
+      .findIndex(a => a === address);
     const entry = new MemoryChannelStoreEntry(
       signedState,
       myIndex,
@@ -17,8 +21,11 @@ export class TestStore extends MemoryStore {
       {[hashState(signedState)]: signedState.signatures},
       funding
     );
-    this._channels[entry.channelId] = entry;
+    await this.backend.setChannel(entry.channelId, entry);
 
     return entry;
+  }
+  setLedgerByEntry(entry) {
+    /* TODO: Implement this */
   }
 }

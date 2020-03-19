@@ -144,7 +144,8 @@ export class MessagingService implements MessagingServiceInterface {
         }
         break;
       case 'GetAddress':
-        this.sendResponse(id, await this.store.getAddress());
+        const address = await this.store.getAddress();
+        this.sendResponse(requestId, address);
         break;
       case 'GetEthereumSelectedAddress':
         // Possibly undefined, App should call EnableEthereum if so

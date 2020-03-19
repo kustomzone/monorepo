@@ -3,29 +3,7 @@ import {signState, hashState, getSignerAddress, calculateChannelId} from './stat
 import _ from 'lodash';
 import {Funding} from './store';
 import {BigNumber} from 'ethers/utils';
-
-export type ChannelStoredData = {
-  stateVariables: Record<string, StateVariables>;
-  channelConstants: Omit<ChannelConstants, 'challengeDuration' | 'channelNonce'> & {
-    challengeDuration: BigNumber | string;
-    channelNonce: BigNumber | string;
-  };
-  signatures: Record<string, string[] | undefined>;
-  funding: Funding | undefined;
-  myIndex: number;
-};
-
-export interface ChannelStoreEntry {
-  readonly channelId: string;
-  readonly myIndex: number;
-  readonly latest: StateVariables;
-  readonly supported: StateVariables | undefined;
-  readonly latestSupportedByMe: StateVariables | undefined;
-  readonly channelConstants: ChannelConstants;
-  readonly funding?: Funding;
-  readonly states: State[];
-  data(): ChannelStoredData;
-}
+import {ChannelStoreEntry, ChannelStoredData} from './channel-store-entry';
 
 export class MemoryChannelStoreEntry implements ChannelStoreEntry {
   public readonly channelConstants: ChannelConstants;

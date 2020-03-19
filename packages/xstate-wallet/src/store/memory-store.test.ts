@@ -101,7 +101,7 @@ test('newObjectiveFeed', async () => {
 });
 
 describe('createChannel', () => {
-  it('returns a ChannelStoreEntry', async () => {
+  it('returns a channel-store-entry', async () => {
     const store = await aStore();
 
     const firstEntry = await store.createChannel(

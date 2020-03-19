@@ -72,8 +72,10 @@ const allSignState = (state: State) => ({
 });
 
 beforeEach(() => {
-  aStore = new TestStore([wallet1.privateKey], chain);
-  bStore = new TestStore([wallet2.privateKey], chain);
+  aStore = new TestStore(chain);
+  aStore.initialize([wallet1.privateKey]);
+  bStore = new TestStore(chain);
+  bStore.initialize([wallet2.privateKey]);
 
   [aStore, bStore].forEach((store: TestStore) => {
     store.createEntry(allSignState(firstState(outcome, targetChannel)));

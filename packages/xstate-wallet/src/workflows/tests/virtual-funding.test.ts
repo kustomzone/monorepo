@@ -59,8 +59,11 @@ const outcome: Outcome = simpleEthAllocation([
 
 const context: VirtualFundingAsLeaf.Init = {targetChannelId, jointChannelId};
 
-const ledgerAmounts = [4, 4].map(bigNumberify);
-const depositAmount = ledgerAmounts.reduce(add).toHexString();
+const ledgerAmounts = [4, 4];
+const depositAmount = ledgerAmounts
+  .map(bigNumberify)
+  .reduce(add)
+  .toHexString();
 let hubStore: TestStore;
 let aStore: TestStore;
 let bStore: TestStore;
@@ -68,9 +71,12 @@ let chain: FakeChain;
 
 beforeEach(() => {
   chain = new FakeChain();
-  hubStore = new TestStore([wallet3.privateKey], chain);
-  aStore = new TestStore([wallet1.privateKey], chain);
-  bStore = new TestStore([wallet2.privateKey], chain);
+  hubStore = new TestStore(chain);
+  hubStore.initialize([wallet3.privateKey]);
+  aStore = new TestStore(chain);
+  aStore.initialize([wallet1.privateKey]);
+  bStore = new TestStore(chain);
+  bStore.initialize([wallet2.privateKey]);
 });
 
 test('virtual funding with smart hub', async () => {
@@ -176,11 +182,11 @@ test('virtual funding with a simple hub', async () => {
         simpleEthAllocation([
           {
             destination: jointParticipants[ParticipantIdx.A].destination,
-            amount: ledgerAmounts[0].sub(amounts[0])
+            amount: bigNumberify(ledgerAmounts[0]).sub(amounts[0])
           },
           {
             destination: jointParticipants[ParticipantIdx.Hub].destination,
-            amount: ledgerAmounts[1].sub(amounts[1])
+            amount: bigNumberify(ledgerAmounts[1]).sub(amounts[1])
           },
           // We don't know the guarantor channel id
           {destination: expect.any(String), amount: amounts.reduce(add)}
@@ -203,7 +209,8 @@ test('virtual funding with a simple hub', async () => {
 });
 
 test('invalid joint state', async () => {
-  const store = new TestStore([wallet1.privateKey]);
+  const store = new TestStore();
+  await store.initialize([wallet1.privateKey]);
   const service = interpret(VirtualFundingAsLeaf.machine(store).withContext(context), {
     parent: {send: () => undefined} as any // Limits console noise
   }).start();
@@ -214,7 +221,7 @@ test('invalid joint state', async () => {
     outcome: simpleEthAllocation([])
   };
 
-  store.pushMessage({
+  await store.pushMessage({
     signedStates: [{...invalidState, signatures: [signState(invalidState, wallet1.privateKey)]}]
   });
 

@@ -38,13 +38,19 @@ it('allows for two wallets to fund an app', async () => {
       first()
     )
     .toPromise();
+
+  const playerBChannelUpdatedPromise = playerB.messagingService.outboxFeed
+    .pipe(
+      filter(o => 'method' in o && o.method === 'ChannelUpdated'),
+      first()
+    )
+    .toPromise();
   await playerA.messagingService.receiveRequest(createEvent);
 
   playerA.channelWallet.workflows[0].machine.send({type: 'USER_APPROVES'});
 
   const createResponse = await createPromise;
   expect(createResponse.result).toBeDefined();
-
   const {channelId} = createResponse.result;
   const joinEvent: JoinChannelRequest = generateJoinChannelRequest(channelId);
   const joinPromise = playerB.messagingService.outboxFeed
@@ -53,6 +59,9 @@ it('allows for two wallets to fund an app', async () => {
       first()
     )
     .toPromise();
+
+  await playerBChannelUpdatedPromise;
+
   await playerB.messagingService.receiveRequest(joinEvent);
 
   // Wait for the create channel service to start
