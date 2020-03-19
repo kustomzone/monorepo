@@ -1,5 +1,5 @@
 import {Observable, fromEvent, merge, from} from 'rxjs';
-import {filter, map} from 'rxjs/operators';
+import {filter, map, concatAll} from 'rxjs/operators';
 import {EventEmitter} from 'eventemitter3';
 import * as _ from 'lodash';
 
@@ -158,16 +158,16 @@ export class XstateStore implements Store {
       filter(cs => cs.channelId === channelId)
     );
 
-    const currentEntry = this.backend.channels[channelId]
-      ? from(this.getEntry(channelId))
-      : from([]);
+    const currentEntry = from(this.backend.getChannel(channelId)).pipe(
+      filter<MemoryChannelStoreEntry>(c => !!c)
+    );
 
     return merge(currentEntry, newEntries);
   }
 
   get objectiveFeed(): Observable<Objective> {
     const newObjectives = fromEvent<Objective>(this._eventEmitter, 'newObjective');
-    const currentObjectives = from(this.backend.objectives);
+    const currentObjectives = from(this.backend.objectives()).pipe(concatAll());
 
     return merge(newObjectives, currentObjectives);
   }
