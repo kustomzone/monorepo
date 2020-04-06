@@ -6,7 +6,8 @@ import {
   Guard,
   assign,
   DoneInvokeEvent,
-  Interpreter
+  Interpreter,
+  Typestate as XTypestate
 } from 'xstate';
 import {SiteBudget, Participant, SimpleAllocation, AssetBudget} from '../store/types';
 
@@ -44,6 +45,7 @@ interface LedgerExists extends Initial {
   ledgerState: ChannelState;
 }
 interface Deposit {
+  ledgerId: string;
   depositAt: BigNumber;
   totalAfterDeposit: BigNumber;
   fundedAt: BigNumber;
@@ -59,16 +61,23 @@ interface Transaction {
   transactionId: string;
 }
 
+type DepositTypestate =
+  | {value: 'init'; context: Deposit}
+  | {value: 'waitTurn'; context: Deposit & Chain}
+  | {value: 'submitTransaction'; context: Deposit & Chain}
+  | {value: 'retry'; context: Deposit & Chain}
+  | {value: 'waitMining'; context: Deposit & Chain & Transaction}
+  | {value: 'waitFullyFunded'; context: Deposit & Chain};
+
+type Embed<Prefix extends string, T, Base> = T extends XTypestate<any>
+  ? {value: {[Key in Prefix]: T['value']}; context: T['context'] & Base}
+  : never;
+
 type Typestate =
   | {value: 'waitForUserApproval'; context: Initial}
   | {value: 'createBudgetAndLedger'; context: Initial}
   | {value: 'waitForPreFS'; context: LedgerExists}
-  | {value: {deposit: 'init'}; context: LedgerExists & Deposit}
-  | {value: {deposit: 'waitTurn'}; context: LedgerExists & Deposit & Chain}
-  | {value: {deposit: 'submitTransaction'}; context: LedgerExists & Deposit & Chain}
-  | {value: {deposit: 'retry'}; context: LedgerExists & Deposit & Chain}
-  | {value: {deposit: 'waitMining'}; context: LedgerExists & Deposit & Chain & Transaction}
-  | {value: {deposit: 'waitFullyFunded'}; context: LedgerExists & Deposit & Chain}
+  | Embed<'deposit', DepositTypestate, LedgerExists>
   | {value: 'done'; context: LedgerExists}
   | {value: 'failure'; context: Initial};
 
@@ -98,13 +107,14 @@ export const machine = (
   store: Store,
   messagingService: MessagingServiceInterface,
   context: Initial
-): StateMachine<Context, Schema, Event, Typestate> =>
+) =>
   createMachine<Context, Event, Typestate>({
     id: 'approve-budget-and-fund',
     context,
     initial: 'waitForUserApproval',
     entry: displayUI(messagingService),
     states: {
+      // StateNodeConfig<Context, any, Event> // doesn't know anything about typestates
       waitForUserApproval: {
         on: {
           USER_APPROVES_BUDGET: {target: 'createBudgetAndLedger'},
@@ -125,52 +135,7 @@ export const machine = (
           onDone: {target: 'deposit', actions: assignDepositingInfo}
         }
       },
-      deposit: {
-        initial: 'init',
-        invoke: {
-          id: 'observeChain',
-          src: observeLedgerOnChainBalance(store)
-        },
-        on: {
-          CHAIN_EVENT: [
-            {target: 'done', actions: assignChainData, cond: fullAmountConfirmed},
-            {target: '.waitFullyFunded', actions: assignChainData, cond: myAmountConfirmed}
-          ]
-        },
-        states: {
-          init: {
-            on: {
-              CHAIN_EVENT: [
-                {target: 'submitTransaction', actions: assignChainData, cond: myTurnNow},
-                {target: 'waitTurn', actions: assignChainData, cond: notMyTurnYet}
-              ]
-            }
-          },
-          waitTurn: {
-            on: {
-              CHAIN_EVENT: [
-                {target: 'submitTransaction', actions: assignChainData, cond: myTurnNow}
-              ]
-            }
-          },
-          submitTransaction: {
-            invoke: {
-              id: 'submitTransaction',
-              src: submitDepositTransaction(store),
-              onDone: {target: 'waitMining', actions: setTransactionId}
-              // onError: {target: 'retry'}
-            }
-          },
-          retry: {
-            on: {
-              USER_APPROVES_RETRY: {target: 'submitTransaction'},
-              USER_REJECTS_RETRY: {target: '#failure'}
-            }
-          },
-          waitMining: {},
-          waitFullyFunded: {}
-        }
-      },
+      deposit: depositMachine(store, messagingService).config as any,
       done: {
         id: 'done',
         type: 'final',
@@ -181,6 +146,52 @@ export const machine = (
         ]
       },
       failure: {id: 'failure', type: 'final'}
+    }
+  });
+
+export const depositMachine = (store: Store, messagingService: MessagingServiceInterface) =>
+  createMachine<DepositTypestate['context'], Event, DepositTypestate>({
+    initial: 'init',
+    invoke: {
+      id: 'observeChain',
+      src: observeLedgerOnChainBalance(store)
+    },
+    on: {
+      CHAIN_EVENT: [
+        {target: 'done', actions: assignChainData as any, cond: fullAmountConfirmed},
+        {target: '.waitFullyFunded', actions: assignChainData, cond: myAmountConfirmed}
+      ]
+    },
+    states: {
+      init: {
+        on: {
+          CHAIN_EVENT: [
+            {target: 'submitTransaction', actions: assignChainData, cond: myTurnNow},
+            {target: 'waitTurn', actions: assignChainData, cond: notMyTurnYet}
+          ]
+        }
+      },
+      waitTurn: {
+        on: {
+          CHAIN_EVENT: [{target: 'submitTransaction', actions: assignChainData, cond: myTurnNow}]
+        }
+      },
+      submitTransaction: {
+        invoke: {
+          id: 'submitTransaction',
+          src: submitDepositTransaction(store),
+          onDone: {target: 'waitMining', actions: setTransactionId}
+          // onError: {target: 'retry'}
+        }
+      },
+      retry: {
+        on: {
+          USER_APPROVES_RETRY: {target: 'submitTransaction'},
+          USER_REJECTS_RETRY: {target: '#failure'}
+        }
+      },
+      waitMining: {},
+      waitFullyFunded: {}
     }
   });
 
@@ -295,7 +306,7 @@ const notifyWhenPreFSSupported = (store: Store) => ({ledgerState, ledgerId}: Led
     )
     .toPromise();
 
-const observeLedgerOnChainBalance = (store: Store) => ({ledgerId}: LedgerExists) =>
+const observeLedgerOnChainBalance = (store: Store) => ({ledgerId}: Deposit) =>
   store.chain.chainUpdatedFeed(ledgerId).pipe(
     map(chainInfo => ({
       type: 'CHAIN_EVENT',
@@ -328,7 +339,7 @@ const myAmountConfirmed: Guard<Deposit, ChainEvent> = {
     event.balance.gte(context.totalAfterDeposit) && event.balance.lt(context.fundedAt)
 };
 
-const assignChainData = assign<Context, ChainEvent>({
+const assignChainData = assign<Deposit | (Deposit & Chain), ChainEvent>({
   ledgerTotal: (context, event: ChainEvent) => event.balance,
   currentBlockNum: (context, event: ChainEvent) => event.blockNum,
   lastChangeBlockNum: (context, event: ChainEvent) =>
@@ -337,12 +348,12 @@ const assignChainData = assign<Context, ChainEvent>({
       : event.blockNum
 });
 
-const setTransactionId = assign<Context, DoneInvokeEvent<string>>({
+const setTransactionId = assign<DepositTypestate['context'], DoneInvokeEvent<string>>({
   transactionId: (context, event) => event.data
 });
 
 const submitDepositTransaction = (store: Store) => async (
-  ctx: LedgerExists & Deposit & Chain
+  ctx: Deposit & Chain
 ): Promise<string | undefined> => {
   const amount = ctx.totalAfterDeposit.sub(ctx.ledgerTotal);
   if (amount.lte(0)) {
