@@ -13,6 +13,7 @@ import {
   waitAndApproveDepositWithHub
 } from '../helpers';
 import {Dappeteer} from 'dappeteer';
+import {Guid} from 'guid-typescript';
 
 function prepareUploadFile(path: string): void {
   const content = 'web3torrent\n'.repeat(1000000);
@@ -33,7 +34,7 @@ export async function uploadFile(
   await page.waitForSelector('input[type=file]');
 
   // Generate a /tmp file with deterministic data for upload testing
-  const fileToUpload = '/tmp/web3torrent-tests-stub';
+  const fileToUpload = `/tmp/web3torrent-tests-stub-${Guid.create().toString()}`;
   prepareUploadFile(fileToUpload);
 
   // https://pub.dev/documentation/puppeteer/latest/puppeteer/FileChooser-class.html
