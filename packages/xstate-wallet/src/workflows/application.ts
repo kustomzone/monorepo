@@ -202,7 +202,7 @@ const generateConfig = (
         id: 'closing-protocol',
         src: 'invokeClosingProtocol',
         data: context => context,
-        autoForward: true,
+        autoForward: false,
         onDone: {target: 'done', actions: [actions.sendCloseChannelResponse]}
       }
     },
