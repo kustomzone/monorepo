@@ -11,7 +11,7 @@ defaults: &defaults
   working_directory: /home/circleci/project
   resource_class: medium
   docker:
-    - image: counterfactual/statechannels:0.6.1 # Fast contract compilation with solc installed
+    - image: counterfactual/statechannels:node12-solc0.6.1 # Fast contract compilation with solc installed
 
 save_dep: &save_dep
   save_cache:
@@ -193,7 +193,7 @@ jobs:
     resource_class: large
     working_directory: /home/circleci/project
     docker:
-      - image: circleci/node:10.16.3-browsers
+      - image: circleci/node:12.16.3-browsers
     steps:
       - install_xvfb
       - run_xvfb
@@ -214,7 +214,7 @@ jobs:
     resource_class: large
     working_directory: /home/circleci/project
     docker:
-      - image: circleci/node:10.16.3-browsers
+      - image: circleci/node:12.16.3-browsers
     steps:
       - install_xvfb
       - run_xvfb
@@ -245,7 +245,7 @@ jobs:
     resource_class: large
     working_directory: /home/circleci/project
     docker:
-      - image: circleci/node:10.16.3-browsers
+      - image: circleci/node:12.16.3-browsers
     steps:
       - install_xvfb
       - run_xvfb
@@ -317,7 +317,7 @@ jobs:
     working_directory: /home/circleci/project
     resource_class: large
     docker:
-      - image: circleci/node:10.16
+      - image: circleci/node:12.16
     steps:
       - setup_remote_docker
       - checkout
@@ -344,7 +344,7 @@ jobs:
     resource_class: large
     working_directory: /home/circleci/project
     docker:
-      - image: circleci/node:10.16.3-browsers
+      - image: circleci/node:12.16.3-browsers
     environment:
       SC_ENV: production-ropsten
     steps:
@@ -363,7 +363,7 @@ jobs:
     working_directory: /home/circleci/project
     resource_class: small
     docker:
-      - image: circleci/node:10.16
+      - image: circleci/node:12.16
     steps:
       - checkout
       - run: git checkout deploy && git rebase origin/master && git push origin deploy

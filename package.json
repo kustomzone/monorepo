@@ -11,11 +11,11 @@
     "npm-normalize-package-bin": "1.0.1",
     "postinstall-postinstall": "2.0.0",
     "prettier": "1.19.1",
-    "typescript": "3.7.5"
+    "typescript": "3.8.3"
   },
   "engines": {
     "yarn": "^1.17.0",
-    "node": "^10.16.3"
+    "node": "^12.16.3"
   },
   "husky": {
     "hooks": {
