@@ -483,6 +483,8 @@ workflows:
             branches:
               only: deploy
 
+      - push-master-to-deploy
+
   scheduled-release:
     triggers:
       - schedule:
