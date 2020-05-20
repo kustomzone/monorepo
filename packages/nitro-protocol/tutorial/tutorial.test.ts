@@ -1,8 +1,9 @@
 import {Contract, Wallet} from 'ethers';
 import {bigNumberify, parseUnits} from 'ethers/utils';
 // @ts-ignore
-import ETHAssetHolderArtifact from '../../../build/contracts/TestEthAssetHolder.json';
-
+import ETHAssetHolderArtifact from '../build/contracts/TestEthAssetHolder.json';
+import {getTestProvider, setupContracts} from '../test/test-helpers';
+import {Channel, getChannelId} from '../src/contract/channel';
 const provider = getTestProvider();
 let ETHAssetHolder: Contract;
 const chainId = '0x1234';
@@ -27,7 +28,7 @@ beforeAll(async () => {
 describe('tutorial', () => {
   it('lesson 1', async () => {
     const held = parseUnits('1', 'wei');
-
+    const channelNonce = bigNumberify(1).toHexString();
     const destinationChannel: Channel = {chainId, channelNonce, participants};
     const destination = getChannelId(destinationChannel);
 
@@ -38,7 +39,7 @@ describe('tutorial', () => {
     const {events} = await (await tx0).wait();
     const depositedEvent = getDepositedEvent(events);
 
-    expect(await ETHAssetHolder.holdings(destination)).toEqual(held);
+    expect(await ETHAssetHolder.holdings(destination)).toEqual(held.mul(2));
     expect(depositedEvent).toMatchObject({
       destination,
       amountDeposited: bigNumberify(held),

@@ -94,7 +94,7 @@
     "test:ci:contracts": "yarn test:contracts --all --ci --runInBand --bail",
     "test:contracts": "jest -c ./config/jest/jest.contracts.config.js",
     "website:deploy": "yarn contract:compile && yarn docgen && cd website && yarn install && yarn build",
-    "tutorial": "test:contracts tutorial"
+    "tutorial": "jest -c ./config/jest/jest.tutorial.config.js --watch"
   },
   "types": "lib/src/index.d.ts"
 }
