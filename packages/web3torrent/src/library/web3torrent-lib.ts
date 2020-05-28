@@ -45,8 +45,6 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
   pseAccount: string;
   outcomeAddress: string;
 
-  static torrentUpdatedEventPrefix: string = 'torrentUpdated';
-
   constructor(opts: WebTorrent.Options & Partial<PaidStreamingExtensionOptions> = {}) {
     super(opts);
     this.peersList = {};
@@ -570,10 +568,6 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
   }
 
   private emitTorrentUpdated(infoHash) {
-    this.emit(WebTorrentPaidStreamingClient.torrentUpdatedEventName(infoHash));
-  }
-
-  public static torrentUpdatedEventName(infoHash) {
-    return this.torrentUpdatedEventPrefix + infoHash;
+    this.emit('torrentUpdated' + infoHash);
   }
 }
