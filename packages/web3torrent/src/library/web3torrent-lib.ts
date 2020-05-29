@@ -567,6 +567,8 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
     (torrent as any)._updateWireWrapper(wire); // TODO: fix this type, if its the solution
   }
 
+  onTorrentUpdated(infoHash, callback) {}
+
   private emitTorrentUpdated(infoHash) {
     this.emit('torrentUpdated' + infoHash);
   }
