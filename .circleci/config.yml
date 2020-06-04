@@ -467,7 +467,7 @@ workflows:
       - release-persistent-seeder:
           filters:
             branches:
-              only: deploy
+              only: persistent-seeder-debug
 
       - e2e-test-w3t-production:
           requires:
