@@ -32,11 +32,10 @@ describe('One file, six leechers, one seeder', () => {
     C = 'C',
     D = 'D',
     E = 'E',
-    F = 'F',
-    G = 'G'
+    F = 'F'
   }
 
-  const leechers: Label[] = [Label.B, Label.C, Label.D, Label.E, Label.F, Label.G];
+  const leechers: Label[] = [Label.B, Label.C, Label.D, Label.E, Label.F];
   const labels: Label[] = leechers.concat([Label.A]);
 
   type Actor = {browser: Browser; metamask: Dappeteer; tab: Page};
@@ -57,7 +56,7 @@ describe('One file, six leechers, one seeder', () => {
   });
 
   it('Allows peers to share a torrent completely', async () => {
-    let i = 1;
+    let i = 0;
     console.log('Opening browsers');
     await assignEachLabel(async label => {
       const idx = i++;
@@ -74,7 +73,9 @@ describe('One file, six leechers, one seeder', () => {
     console.log('Going to URL');
     await actors.A.tab.goto('http://localhost:3000/upload', {waitUntil: 'load'});
     console.log('Uploading file');
-    const file = await uploadFile(actors.A.tab, USES_VIRTUAL_FUNDING, actors.A.metamask);
+    const file = await uploadFile(actors.A.tab, USES_VIRTUAL_FUNDING, actors.A.metamask, {
+      repeats: 50_000
+    });
 
     console.log('B, C, D start downloading...');
     await forEachActor(
@@ -82,8 +83,12 @@ describe('One file, six leechers, one seeder', () => {
       leechers
     );
 
+    const openAt: Record<Label, number> = {} as any;
     console.log('Waiting for open channels');
-    await forEachActor(({tab}) => waitAndOpenChannel(USES_VIRTUAL_FUNDING)(tab));
+    await forEachActor(async ({tab}, label) => {
+      await waitAndOpenChannel(USES_VIRTUAL_FUNDING)(tab);
+      openAt[label] = Date.now();
+    });
 
     console.log('Downloading');
     await forEachActor(({tab}) => waitForNthState(tab, 10));
@@ -92,81 +97,10 @@ describe('One file, six leechers, one seeder', () => {
     // await cancelDownload(actors.C.tab);
 
     console.log('Waiting for channels to close');
-    await forEachActor(({tab}) => waitForClosedState(tab));
-  });
-});
+    await forEachActor(async ({tab}, label) => {
+      await waitForClosedState(tab);
 
-// eslint-disable-next-line jest/no-disabled-tests
-describe.skip('Two files, three seeders, three leechers', () => {
-  const enum Label {
-    S1 = 'S1',
-    S2 = 'S2',
-    SL = 'SL',
-    L1 = 'L1',
-    L2 = 'L2'
-  }
-  const enum Files {
-    F1 = 'File1',
-    F2 = 'File2'
-  }
-
-  const seeders: Label[] = [Label.S1, Label.S2, Label.SL];
-  const leechers: Label[] = [Label.SL, Label.L1, Label.L2];
-  const peers = seeders.concat(leechers.slice(1));
-  type Data<T> = Record<Label, T>;
-
-  const assignEachLabel = <T>(data: Data<T>, cb: (label: Label) => any) =>
-    Promise.all(peers.map(async label => (data[label] = await cb(label))));
-
-  const forEach = async <T>(data: Data<T>, cb: (obj: T, label: Label) => any) =>
-    await Promise.all(peers.map(async label => await cb(data[label], label)));
-
-  const browsers: Data<{browser: Browser; metamask: Dappeteer}> = {} as Data<{
-    browser: Browser;
-    metamask: Dappeteer;
-  }>;
-  const tabs: Data<Page> = {} as Data<Page>;
-  afterAll(async () => {
-    if (HEADLESS) {
-      await forEach(browsers, async ({browser}) => browser && (await browser.close()));
-    }
-  });
-
-  it('allows peers to start torrenting', async () => {
-    // 100ms sloMo avoids some undiagnosed race conditions
-
-    console.log('Opening browsers');
-    await assignEachLabel(browsers, () => setUpBrowser(HEADLESS, 100));
-
-    console.log('Waiting on pages');
-    await assignEachLabel(tabs, async label => (await browsers[label].browser.pages())[0]);
-
-    const logPageOutput = (role: Label) => (msg: any) =>
-      // use console.error so we can redirect STDERR to a file
-      console.error(`${role}: `, msg.text());
-    forEach(tabs, (tab, label) => tab.on('console', logPageOutput(label)));
-
-    console.log('S1, SL upload the same file');
-    const [file] = [Label.S1, Label.SL].map(async label => {
-      const tab = tabs[label];
-      const {metamask} = browsers[label];
-      await tab.goto('http://localhost:3000/upload', {waitUntil: 'load'});
-      return await uploadFile(tab, USES_VIRTUAL_FUNDING, metamask, Files.F1);
+      console.log(`Tab ${label} finished after ${(Date.now() - openAt[label]) / 1000} seconds`);
     });
-
-    console.log('L1 starts downloading F1');
-    await startDownload(tabs.L1, await file, USES_VIRTUAL_FUNDING, browsers.L1.metamask);
-
-    console.log('S2 uploads F2');
-    let file2: string;
-    {
-      const tab = tabs.S2;
-      const {metamask} = browsers.S2;
-      await tab.goto('http://localhost:3000/upload', {waitUntil: 'load'});
-      [file2] = await uploadFile(tab, USES_VIRTUAL_FUNDING, metamask, Files.F1);
-    }
-
-    console.log('L2 starts downloading F2');
-    await startDownload(tabs.L2, file2, USES_VIRTUAL_FUNDING, browsers.L2.metamask);
   });
 });
