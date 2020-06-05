@@ -9,6 +9,13 @@ export async function persistentSeeder(): Promise<void> {
   console.log('Waiting on pages');
   const web3tTabA = (await browser.pages())[0];
 
+  web3tTabA.on('console', e => {
+    console.log(`${e.type()}-${e.text()}`);
+  });
+
+  web3tTabA.on('error', e => {
+    console.log(e);
+  });
   await setupFakeWeb3(web3tTabA, -1);
 
   await web3tTabA.goto(WEB3TORRENT_URL + '/upload', {waitUntil: 'load'});
