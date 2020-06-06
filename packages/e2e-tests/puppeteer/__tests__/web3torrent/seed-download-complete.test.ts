@@ -79,7 +79,7 @@ describe('Web3-Torrent Integration Tests', () => {
     await web3tTabA.bringToFront();
 
     console.log('A uploads a file');
-    const url = await uploadFile(web3tTabA, USES_VIRTUAL_FUNDING, metamaskA);
+    const url = await uploadFile(web3tTabA, USES_VIRTUAL_FUNDING, metamaskA, {repeats: 100_000});
 
     console.log('B starts downloading...');
     await startDownload(web3tTabB, url, USES_VIRTUAL_FUNDING, metamaskB);
@@ -98,6 +98,7 @@ describe('Web3-Torrent Integration Tests', () => {
     await waitForTransactionIfNecessary(web3tTabB);
 
     // Let the download continue for some time
+    const start = Date.now();
     console.log('Downloading');
 
     // TODO: Verify withdrawal for direct funding once it's implemented
@@ -109,6 +110,8 @@ describe('Web3-Torrent Integration Tests', () => {
 
     console.log('Wait for the "Save File" button to appear');
     await waitForFinishedOrCanceledDownload(web3tTabB);
+
+    console.log(`Download took ~${(Date.now() - start) / 1000} seconds`);
 
     // Inject some delays. Otherwise puppeteer may read the stale amounts and fails.
     await forEachTab(tab => tab.waitFor(1500));
