@@ -180,6 +180,8 @@ declare module 'webtorrent' {
       callback: ({torrent, error}: {torrent: PaidStreamingTorrent; error: string | Error}) => void
     ): this;
 
+    on(event: 'listening', callback: () => void);
+
     on(
       event: ClientEvents.TORRENT_NOTICE,
       callback: ({
@@ -194,6 +196,8 @@ declare module 'webtorrent' {
         data: any;
       }) => void
     ): this;
+
+    address(): {address: string; family: string; port: number};
   }
 
   export interface TorrentFile {
