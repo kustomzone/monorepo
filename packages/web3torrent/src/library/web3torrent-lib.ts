@@ -363,6 +363,7 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
     const {channelId} = await this.paymentChannelClient.createChannel(peers);
 
     wire.paidStreamingExtension.seedingChannelId = channelId;
+
     this.peersList[torrent.infoHash][channelId] = {
       id: peerAccount,
       wire,

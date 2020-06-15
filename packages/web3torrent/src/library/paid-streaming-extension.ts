@@ -11,17 +11,22 @@ import {
 
 const log = logger.child({module: 'paid-streaming-extension'});
 
+/*
+ * The PaidStreamingExtension is used for two things:
+ * 1. exchanging an "account" (participantId) and an outcome address
+ * 2. Sending/receiving messages (used to send states/other messages from the wallet)
+ */
 export abstract class PaidStreamingExtension implements Extension {
   private _isPaidStreamingExtension = true;
 
   constructor(
     public readonly wire: PaidStreamingWire,
-    protected pseAccount: string,
-    protected pseOutcomeAddress: string,
+    protected account: string,
+    protected outcomeAddress: string,
     public readonly messageBus = new EventEmitter()
   ) {
-    this.wire.extendedHandshake.pseAccount = new Buffer(pseAccount);
-    this.wire.extendedHandshake.outcomeAddress = new Buffer(pseOutcomeAddress);
+    this.wire.extendedHandshake.pseAccount = new Buffer(account);
+    this.wire.extendedHandshake.outcomeAddress = new Buffer(outcomeAddress);
     this.addLogs();
   }
 
@@ -31,11 +36,6 @@ export abstract class PaidStreamingExtension implements Extension {
 
   peerAccount?: string;
   peerOutcomeAddress?: string;
-
-  // channel that another peer uses to pay me.
-  seedingChannelId: string;
-  // channel that I use to pay another peer.
-  leechingChannelId: string;
 
   on(event: PaidStreamingExtensionEvents, callback: EventEmitter.ListenerFn<any[]>) {
     this.messageBus.on(event, callback);
@@ -67,14 +67,6 @@ export abstract class PaidStreamingExtension implements Extension {
     return true;
   }
 
-  stop() {
-    this.executeExtensionCommand(PaidStreamingExtensionNotices.STOP, this.seedingChannelId);
-  }
-
-  start() {
-    this.executeExtensionCommand(PaidStreamingExtensionNotices.START);
-  }
-
   ack() {
     this.executeExtensionCommand(PaidStreamingExtensionNotices.ACK);
   }
@@ -101,7 +93,7 @@ export abstract class PaidStreamingExtension implements Extension {
         return;
       case PaidStreamingExtensionNotices.MESSAGE:
         data = JSON.parse(data.message);
-        if (data.recipient !== this.pseAccount) return;
+        if (data.recipient !== this.account) return;
 
         log.info({data}, `MESSAGE received from ${this.peerAccount}`);
         this.ack();

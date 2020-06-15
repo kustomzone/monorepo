@@ -45,7 +45,7 @@ export enum WireEvents {
 export enum PaidStreamingExtensionEvents {
   WARNING = 'warning',
   PSE_HANDSHAKE = 'pse_handshake',
-  NOTICE = 'notice',
+  MESSAGE = 'notice',
   REQUEST = 'request'
 }
 

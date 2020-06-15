@@ -1,5 +1,5 @@
 import {Machine} from 'xstate';
-import {PaymentChannelClient} from '../clients/payment-channel-client';
+import {PaymentChannelClient, ChannelState} from '../clients/payment-channel-client';
 import {PaidStreamingExtension} from './paid-streaming-extension';
 import {PaidStreamingExtensionEvents} from './types';
 import {merge, fromEvent} from 'rxjs';
@@ -7,15 +7,15 @@ import {merge, fromEvent} from 'rxjs';
 type Context = {
   paidStreamingExtension: PaidStreamingExtension;
   paymentChannelClient: PaymentChannelClient;
+  channelState: ChannelState;
+  channelId: string;
   uploaded: number;
   blockedRequests: [number, number, number][];
 };
 
 function buffer(ctx: Context): number {
-  // TODO
-  return ctx.paymentChannelClient.channelCache['ctx.channelId'].turnNum
-    .sub(ctx.uploaded)
-    .toNumber();
+  // TODO: Make the right calculation
+  return ctx.paymentChannelClient.channelCache[ctx.channelId].turnNum.sub(ctx.uploaded).toNumber();
 }
 
 function requestWatcher(ctx: Context) {
