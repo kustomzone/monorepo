@@ -37,16 +37,16 @@ export const DomainBudget: React.FC<DomainBudgetProps> = props => {
     return (
       (channelCache[channelId].payer.signingAddress === mySigningAddress &&
         bigNumberify(channelCache[channelId].payer.balance)) ||
-      (channelCache[channelId].beneficiary.signingAddress === mySigningAddress &&
-        bigNumberify(channelCache[channelId].beneficiary.balance))
+      (channelCache[channelId].recipient.signingAddress === mySigningAddress &&
+        bigNumberify(channelCache[channelId].recipient.balance))
     );
   }
 
   function extractCounterpartyBalance(channelId: string) {
     return (
       (channelCache[channelId].payer.signingAddress === mySigningAddress &&
-        bigNumberify(channelCache[channelId].beneficiary.balance)) ||
-      (channelCache[channelId].beneficiary.signingAddress === mySigningAddress &&
+        bigNumberify(channelCache[channelId].recipient.balance)) ||
+      (channelCache[channelId].recipient.signingAddress === mySigningAddress &&
         bigNumberify(channelCache[channelId].payer.balance))
     );
   }

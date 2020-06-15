@@ -30,7 +30,7 @@ When the `MessageQueued` event fires, send the associated data down the `wire`. 
 
 ### Channel setup
 
-**Uploader:**: Upon the first request for data of an unkown peer; create a new, unidirectional payment channel with me (the uploader) as the "beneficiary", and the peer (the downloader) as the "payer". This action is associated with the `paymentChannelClient.createChannel()` API call. Then choke the downloader and send them a `STOP` notification (which is a prompt for a payment).
+**Uploader:**: Upon the first request for data of an unkown peer; create a new, unidirectional payment channel with me (the uploader) as the "recipient", and the peer (the downloader) as the "payer". This action is associated with the `paymentChannelClient.createChannel()` API call. Then choke the downloader and send them a `STOP` notification (which is a prompt for a payment).
 
 **Downloader:** When the "ChannelProposed" event fires, automatically join that channel.
 

@@ -203,7 +203,7 @@ Effects:
 
 ## `transferAll`
 
-The transferAll method takes the funds escrowed against a channel, and attempts to transfer them to the beneficiaries of that channel. The transfers are attempted in priority order, so that beneficiaries of underfunded channels may not receive a transfer, depending on their priority. Surplus funds remain in escrow against the channel. Full or partial transfers to a beneficiary results in deletion or reduction of that beneficiary's allocation (respectively). A transfer to another channel results in explicit escrow of funds against that channel. A transfer to an external destination results in ETH or ERC20 tokens being transferred out of the AssetHolder contract.
+The transferAll method takes the funds escrowed against a channel, and attempts to transfer them to the beneficiaries of that channel. The transfers are attempted in priority order, so that beneficiaries of underfunded channels may not receive a transfer, depending on their priority. Surplus funds remain in escrow against the channel. Full or partial transfers to a recipient results in deletion or reduction of that recipient's allocation (respectively). A transfer to another channel results in explicit escrow of funds against that channel. A transfer to an external destination results in ETH or ERC20 tokens being transferred out of the AssetHolder contract.
 
 ```solidity
 function transferAll(bytes32 channelId, bytes calldata allocationBytes) external
@@ -215,7 +215,7 @@ This algorithm works by counting the number of `AllocationItems` that are to be 
 
 ## `claimAll`
 
-The claimAll method takes the funds escrowed against a guarantor channel, and attempts to transfer them to the beneficiaries of the target channel specified by the guarantor. The transfers are first attempted in a nonstandard priority order given by the guarantor, so that beneficiaries of underfunded channels may not receive a transfer, depending on their nonstandard priority. Full or partial transfers to a beneficiary results in deletion or reduction of that beneficiary's allocation (respectively). Surplus funds are then subject to another attempt to transfer them to the beneficiaries of the target channel, but this time with the standard priority order given by the target channel. Any funds that still remain after this step remain in escrow against the guarantor.
+The claimAll method takes the funds escrowed against a guarantor channel, and attempts to transfer them to the beneficiaries of the target channel specified by the guarantor. The transfers are first attempted in a nonstandard priority order given by the guarantor, so that beneficiaries of underfunded channels may not receive a transfer, depending on their nonstandard priority. Full or partial transfers to a recipient results in deletion or reduction of that recipient's allocation (respectively). Surplus funds are then subject to another attempt to transfer them to the beneficiaries of the target channel, but this time with the standard priority order given by the target channel. Any funds that still remain after this step remain in escrow against the guarantor.
 
 As with `transferAll`, a transfer to another channel results in explicit escrow of funds against that channel. A transfer to an external destination results in ETH or ERC20 tokens being transferred out of the AssetHolder contract.
 

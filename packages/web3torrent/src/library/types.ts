@@ -164,7 +164,7 @@ export type PeerByTorrent = {
   id: string;
   wire: PaidStreamingWire | PeerWire;
   buffer: string;
-  beneficiaryBalance: string;
+  recipientBalance: string;
   uploaded: number;
 };
 

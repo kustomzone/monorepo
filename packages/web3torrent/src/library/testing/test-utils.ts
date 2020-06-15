@@ -60,6 +60,6 @@ export const mockChannelState: ChannelState = {
   turnNum: utils.bigNumberify(0),
   status: 'running',
   challengeExpirationTime: '0x0',
-  beneficiary: peer('0x0', '0x0', '0x0'),
+  recipient: peer('0x0', '0x0', '0x0'),
   payer: peer('0x0', '0x0', '0x0')
 };

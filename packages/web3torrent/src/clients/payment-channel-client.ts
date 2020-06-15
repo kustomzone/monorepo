@@ -23,18 +23,18 @@ const bigNumberify = utils.bigNumberify;
 const FINAL_SETUP_STATE = utils.bigNumberify(3); // for a 2 party ForceMove channel
 const APP_DATA = constants.HashZero; // unused in the SingleAssetPaymentApp
 
-export interface Peer {
+export type Balance = {
   signingAddress: string;
   outcomeAddress: string;
   balance: string;
-}
-export type Peers = {receiver: Peer; payer: Peer};
+};
+export type Balances = {receiver: Balance; payer: Balance};
 
 export const peer = (
   signingAddress: string,
   outcomeAddress: string,
   balance: string | number
-): Peer => ({
+): Balance => ({
   signingAddress,
   outcomeAddress,
   balance: utils.bigNumberify(balance).toHexString()
@@ -44,8 +44,8 @@ export interface ChannelState {
   turnNum: utils.BigNumber;
   status: ChannelStatus;
   challengeExpirationTime;
-  receiver: Peer;
-  payer: Peer;
+  receiver: Balance;
+  payer: Balance;
 }
 
 export enum Index {
@@ -86,26 +86,26 @@ export const convertToChannelState = (channelResult: ChannelResult): ChannelStat
  * @param peers: Peers
  * Arranges peers in order, as determined by the Index enum.
  */
-const arrangePeers = ({receiver, payer}: Peers): [Peer, Peer] => {
-  const peers: [Peer, Peer] = [undefined, undefined];
+const arrangePeers = ({receiver, payer}: Balances): [Balance, Balance] => {
+  const peers: [Balance, Balance] = [undefined, undefined];
   peers[Index.Payer] = payer;
   peers[Index.Receiver] = receiver;
 
   return peers;
 };
 
-const formatParticipant = ({signingAddress, outcomeAddress}: Peer): Participant => ({
+const formatParticipant = ({signingAddress, outcomeAddress}: Balance): Participant => ({
   participantId: signingAddress,
   signingAddress,
   destination: outcomeAddress
 });
-const formatParticipants = (peers: Peers) => arrangePeers(peers).map(formatParticipant);
+const formatParticipants = (peers: Balances) => arrangePeers(peers).map(formatParticipant);
 
-const formatItem = (p: Peer): AllocationItem => ({
+const formatItem = (p: Balance): AllocationItem => ({
   amount: hexZeroPad(bigNumberify(p.balance).toHexString(), 32),
   destination: p.outcomeAddress
 });
-const formatAllocations = (peers: Peers): Allocations => [
+const formatAllocations = (peers: Balances): Allocations => [
   {token: AddressZero, allocationItems: arrangePeers(peers).map(formatItem)}
 ];
 
@@ -173,7 +173,7 @@ abstract class SingleChannelClient {
     return this.channelClient.challengeChannel(this.channelId).then(convertToChannelState);
   }
 
-  async updateChannel(peers: Peers): Promise<ChannelState> {
+  async updateChannel(peers: Balances): Promise<ChannelState> {
     return this.channelClient
       .updateChannel(this.channelId, formatParticipants(peers), formatAllocations(peers), APP_DATA)
       .then(convertToChannelState);
@@ -247,7 +247,7 @@ export class PayingChannelClient extends SingleChannelClient {
  * The receiver proposes the channel, and accepts payments
  */
 export class ReceivingChannelClient extends SingleChannelClient {
-  async createChannel(peers: Peers): Promise<any> {
+  async createChannel(peers: Balances): Promise<any> {
     return this.channelClient.createChannel(
       formatParticipants(peers),
       formatAllocations(peers),

@@ -15,7 +15,12 @@ import {
   TorrentCallback,
   ExtendedTorrentOptions
 } from './types';
-import {ChannelState, PaymentChannelClient, peer, Peers} from '../clients/payment-channel-client';
+import {
+  ChannelState,
+  PaymentChannelClient,
+  peer,
+  Balances
+} from '../clients/payment-channel-client';
 import {
   defaultTrackers,
   WEI_PER_BYTE,
@@ -359,7 +364,7 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
       peerOutcomeAddress,
       hexZeroPad(WEI_PER_BYTE.mul(torrent.length).toHexString(), 32)
     );
-    const peers: Peers = {beneficiary: seeder, payer: leecher};
+    const peers: Balances = {recipient: seeder, payer: leecher};
     const {channelId} = await this.paymentChannelClient.createChannel(peers);
 
     wire.paidStreamingExtension.seedingChannelId = channelId;
@@ -368,7 +373,7 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
       id: peerAccount,
       wire,
       buffer: '0', // (bytes) a value x > 0 would allow a leecher to download x bytes
-      beneficiaryBalance: '0', // (wei)
+      recipientBalance: '0', // (wei)
       uploaded: 0
     };
 
@@ -384,13 +389,13 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
     }
     // querying channel client for updated balance
     const newBalance = bigNumberify(
-      this.paymentChannelClient.channelCache[channelId].beneficiary.balance
+      this.paymentChannelClient.channelCache[channelId].recipient.balance
     );
     // infer payment using update balance and previously stored balance
-    const payment = bigNumberify(newBalance.sub(bigNumberify(peer.beneficiaryBalance)));
+    const payment = bigNumberify(newBalance.sub(bigNumberify(peer.recipientBalance)));
     // store new balance
 
-    peer.beneficiaryBalance = newBalance.toString();
+    peer.recipientBalance = newBalance.toString();
     // convert payment into buffer units (bytes)
     peer.buffer = bigNumberify(peer.buffer)
       .add(payment.div(WEI_PER_BYTE)) // This must remain an integer as long as our check above uses .isZero()
@@ -442,7 +447,7 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
         const {leechingChannelId: channelId} = wire.paidStreamingExtension;
         const channelOfWire = this.paymentChannelClient.channelCache[channelId];
         if (channelOfWire) {
-          const balance = channelOfWire.beneficiary.balance;
+          const balance = channelOfWire.recipient.balance;
           const downloaded = wire.downloaded;
           log.info(
             `TorrentEvents: Done, per-wire info. Channel: ${channelId} Balance: ${balance} Downloaded: ${downloaded}`
@@ -520,7 +525,7 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
     log.debug(`<< STOP ${peerAccount} - About to pay ${amountToPay.toString()}`);
     await this.paymentChannelClient.makePayment(leechingChannelId, amountToPay.toString());
 
-    const balance = this.paymentChannelClient.channelCache[leechingChannelId].beneficiary.balance;
+    const balance = this.paymentChannelClient.channelCache[leechingChannelId].recipient.balance;
     log.debug(`<< Payment - Peer ${peerAccount} Balance: ${balance} Downloaded ${downloaded}`);
   }
 

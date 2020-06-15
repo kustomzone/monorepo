@@ -45,14 +45,14 @@ export function createMockTorrentPeers(): TorrentPeers {
       wire: {
         uploaded: 4225
       },
-      beneficiaryBalance: '50',
+      recipientBalance: '50',
       buffer: '50',
       uploaded: 4225
     },
     '5589113806923374': {
       id: '5589113806923374',
       buffer: '50',
-      beneficiaryBalance: '50',
+      recipientBalance: '50',
       wire: {
         uploaded: 52923
       },

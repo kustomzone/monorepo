@@ -36,7 +36,7 @@ if (process.env.FAKE_CHANNEL_PROVIDER === 'true') {
 }
 
 // This Client targets at _unidirectional_, single asset (ETH) payment channel with 2 participants running on Nitro protocol
-// The beneficiary proposes the channel, but accepts payments
+// The recipient proposes the channel, but accepts payments
 // The payer joins the channel, and makes payments
 export class Web3torrentChannelClient {
   paymentChannels: PaymentChannelClient[];
