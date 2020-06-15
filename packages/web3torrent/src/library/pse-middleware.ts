@@ -14,9 +14,7 @@ export default function usePaidStreamingExtension(
 ): ExtensionConstructor {
   return class PSE extends PaidStreamingExtension {
     constructor(wireToUse: Wire) {
-      super(wireToUse as Wireish);
-      this.pseAccount = options.pseAccount;
-      this.pseAddress = options.outcomeAddress;
+      super(wireToUse as Wireish, options.pseAccount, options.outcomeAddress);
     }
   };
 }

@@ -20,8 +20,8 @@ export abstract class PaidStreamingExtension implements Extension {
     protected pseOutcomeAddress: string,
     public readonly messageBus = new EventEmitter()
   ) {
-    this.wire.extendedHandshake.pseAccount = new Buffer(pseAccount);
-    this.wire.extendedHandshake.outcomeAddress = new Buffer(pseOutcomeAddress);
+    this.wire.extendedHandshake.pseAccount = pseAccount;
+    this.wire.extendedHandshake.outcomeAddress = pseOutcomeAddress;
     this.interceptRequests();
   }
 
@@ -36,6 +36,14 @@ export abstract class PaidStreamingExtension implements Extension {
   seedingChannelId: string;
   // channel that I use to pay another peer.
   leechingChannelId: string;
+
+  isForceChoking = false;
+  isBeingChoked = false;
+
+  // this value is meant to be bumped to mirror wire.downloaded
+  // and incremented every time a keep-alive is sent; useful for
+  // detecting if there has been progress over a keep-alive period
+  _keepAliveIncrementalDownloaded: number = 0;
 
   on(event: PaidStreamingExtensionEvents, callback: EventEmitter.ListenerFn<any[]>) {
     this.messageBus.on(event, callback);
@@ -56,8 +64,13 @@ export abstract class PaidStreamingExtension implements Extension {
       );
     }
 
-    this.peerAccount = handshake.pseAccount.toString();
-    this.peerOutcomeAddress = handshake.outcomeAddress.toString();
+    if (handshake.pseAccount) {
+      this.peerAccount = handshake.pseAccount.toString();
+    }
+
+    if (handshake.outcomeAddress) {
+      this.peerOutcomeAddress = handshake.outcomeAddress.toString();
+    }
 
     this.messageBus.emit(PaidStreamingExtensionEvents.PSE_HANDSHAKE, {
       pseAccount: this.peerAccount,
@@ -68,11 +81,20 @@ export abstract class PaidStreamingExtension implements Extension {
   }
 
   stop() {
+    this.isForceChoking = true;
     this.executeExtensionCommand(PaidStreamingExtensionNotices.STOP, this.seedingChannelId);
   }
 
   start() {
-    this.executeExtensionCommand(PaidStreamingExtensionNotices.START);
+    if (this.isForceChoking) {
+      this.isForceChoking = false;
+      this.executeExtensionCommand(PaidStreamingExtensionNotices.START);
+      this.blockedRequests
+        .splice(0, this.blockedRequests.length)
+        .map(req => this.wire._onRequest(req[0], req[1], req[2]));
+      // tries to clear the blocked requests, after the leecher paid, if the paid ammount is not enough
+      // the requests enter again the blockedRequests array.
+    }
   }
 
   ack() {
@@ -138,24 +160,35 @@ export abstract class PaidStreamingExtension implements Extension {
     }
   }
 
-  protected interceptPieces() {
-    const {wire} = this;
+  protected interceptRequests() {
+    const {messageBus, wire} = this;
 
-    // for debugging purposes, we log when a piece arrives
+    // for debugging purposes. It logs when a piece is received
     const _onPiece = wire._onPiece; // handler for the "piece recieved" event
     wire._onPiece = function(index, offset, buffer) {
       _onPiece.apply(wire, [index, offset, buffer]);
       log.trace(`<< _onPiece: ${index} OFFSET: ${offset} DOWNLOADED: ${wire.downloaded}`);
     };
-  }
-
-  protected interceptRequests() {
-    const {wire} = this;
-
-    const _onRequest = wire._onRequest;
+    const blockedRequests = this.blockedRequests;
+    const _onRequest = wire._onRequest; // handler for the "request recieved" event
     wire._onRequest = function(index, offset, length) {
       log.trace(`_onRequest: ${index}`);
-      _onRequest.apply(wire, [index, offset, length]);
+
+      if (this.paidStreamingExtension.isForceChoking) {
+        // if the seeder is already blocking, do not even send the request to the client.
+        // Just block and add the request to the blockedRequests array
+        blockedRequests.push([index, offset, length]);
+        log.trace(`_onRequest: ${index}, ${offset}, ${length} - IGNORED`);
+      } else {
+        messageBus.emit(PaidStreamingExtensionEvents.REQUEST, index, length, function(allow) {
+          if (allow) {
+            _onRequest.apply(wire, [index, offset, length]);
+            // continue the normal flow, and respond to the request.
+          } else {
+            blockedRequests.push([index, offset, length]);
+          }
+        });
+      }
     };
   }
 }

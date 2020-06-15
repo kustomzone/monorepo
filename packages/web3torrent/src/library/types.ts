@@ -57,8 +57,8 @@ export enum PaidStreamingExtensionNotices {
 }
 
 export type PaidStreamingExtendedHandshake = {
-  pseAccount: string; // WARNING: This is not a string. It is a Buffer.
-  outcomeAddress: string;
+  pseAccount: Buffer;
+  outcomeAddress: Buffer;
 };
 
 export type PaidStreamingWire = Omit<Wire, 'requests'> &
