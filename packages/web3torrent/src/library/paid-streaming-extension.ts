@@ -21,8 +21,8 @@ export abstract class PaidStreamingExtension implements Extension {
 
   constructor(
     public readonly wire: PaidStreamingWire,
-    protected account: string,
-    protected outcomeAddress: string,
+    public readonly account: string,
+    public readonly outcomeAddress: string,
     public readonly messageBus = new EventEmitter()
   ) {
     this.wire.extendedHandshake.pseAccount = account;
