@@ -25,8 +25,8 @@ export abstract class PaidStreamingExtension implements Extension {
     protected outcomeAddress: string,
     public readonly messageBus = new EventEmitter()
   ) {
-    this.wire.extendedHandshake.pseAccount = new Buffer(account);
-    this.wire.extendedHandshake.outcomeAddress = new Buffer(outcomeAddress);
+    this.wire.extendedHandshake.pseAccount = (account as unknown) as any;
+    this.wire.extendedHandshake.outcomeAddress = (outcomeAddress as unknown) as any;
     this.addLogs();
   }
 

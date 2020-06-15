@@ -61,23 +61,20 @@ export type PaidStreamingExtendedHandshake = {
   outcomeAddress: Buffer;
 };
 
-export type PaidStreamingWire = Omit<Wire, 'requests'> &
-  {
-    -readonly [P in keyof Pick<Wire, 'requests'>]: Wire[P];
-  } & {
-    paidStreamingExtension: PaidStreamingExtension;
-    peerExtendedHandshake: PaidStreamingExtendedHandshake;
-    extendedHandshake: PaidStreamingExtendedHandshake;
-    extended: (name: 'paidStreamingExtension', data: Buffer) => void;
+export type PaidStreamingWire = Wire & {
+  paidStreamingExtension: PaidStreamingExtension;
+  peerExtendedHandshake: PaidStreamingExtendedHandshake;
+  extendedHandshake: PaidStreamingExtendedHandshake;
+  extended: (name: 'paidStreamingExtension', data: Buffer) => void;
 
-    uploaded: number;
-    downloaded: number;
+  uploaded: number;
+  downloaded: number;
 
-    _clearTimeout(): void;
-    _onRequest(index: number, offset: number, length: number): void;
-    _onCancel(index: number, offset: number, length: number): void;
-    _onPiece(index: number, offset: number, buffer: Buffer): void;
-  };
+  _clearTimeout(): void;
+  _onRequest(index: number, offset: number, length: number): void;
+  _onCancel(index: number, offset: number, length: number): void;
+  _onPiece(index: number, offset: number, buffer: Buffer): void;
+};
 
 export const isPaidStreamingWire = (obj: any): obj is PaidStreamingWire =>
   obj !== null &&
