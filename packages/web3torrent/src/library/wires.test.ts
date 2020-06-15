@@ -44,17 +44,11 @@ test('PaidStreamingExtendedHandshake', done => {
 
   seeder.on('handshake', (infoHash, peerId) => {
     eventLog.push('s hs');
-    process.nextTick(() => {
-      seeder.handshake(infoHash, peerId);
-    });
+    // Respond asynchronously
+    process.nextTick(() => seeder.handshake(infoHash, peerId));
   });
 
-  leecher.on('handshake', (infoHash, peerId) => {
-    eventLog.push('l hs');
-    process.nextTick(() => {
-      seeder.handshake(infoHash, peerId);
-    });
-  });
+  leecher.on('handshake', () => eventLog.push('l hs'));
 
   seeder.pipe(leecher).pipe(seeder);
 
@@ -64,6 +58,6 @@ test('PaidStreamingExtendedHandshake', done => {
   seeder.on('error', err => done.fail(err));
   leecher.on('error', err => done.fail(err));
 
-  const s = '9f384d9dbadc4828aa819f384d9dbadc4828aa81';
-  leecher.handshake(s, s);
+  const lengthTwentyString = '9f384d9dbadc4828aa819f384d9dbadc4828aa81';
+  leecher.handshake(lengthTwentyString, lengthTwentyString);
 });
