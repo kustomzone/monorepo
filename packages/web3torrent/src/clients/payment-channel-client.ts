@@ -1,7 +1,6 @@
 import {utils, constants} from 'ethers';
 import {
   FakeChannelProvider,
-  ChannelClient,
   ChannelClientInterface,
   ErrorCode
 } from '@statechannels/channel-client';
@@ -13,16 +12,15 @@ import {
   AllocationItem,
   Allocations
 } from '@statechannels/client-api-schema';
-import {DomainBudget} from '@statechannels/client-api-schema';
 import {SINGLE_ASSET_PAYMENT_CONTRACT_ADDRESS, HUB, FUNDING_STRATEGY} from '../constants';
 import {AddressZero} from 'ethers/constants';
 import 'firebase/database';
-import {map, filter, first, tap, take} from 'rxjs/operators';
-import {logger} from '../logger';
+import {map, filter, first} from 'rxjs/operators';
+import {logger as _logger} from '../logger';
 import {concat, of, Observable} from 'rxjs';
 import _ from 'lodash';
 
-const log = logger.child({module: 'payment-channel-client'});
+const logger = _logger.child({module: 'payment-channel-client'});
 const hexZeroPad = utils.hexZeroPad;
 
 const bigNumberify = utils.bigNumberify;
@@ -258,7 +256,7 @@ export class PaymentChannelClient {
     }
 
     try {
-      await this.updateChannel(channelId, {
+      await this.updateChannel({
         beneficiary: {...beneficiary, balance: add(beneficiary.balance, amountWillPay)},
         payer: {...payer, balance: subtract(payer.balance, amountWillPay)}
       });
@@ -273,8 +271,8 @@ export class PaymentChannelClient {
 
   // beneficiary may use this method to accept payments
   async acceptChannelUpdate(channelState: ChannelState) {
-    const {channelId, beneficiary, payer} = channelState;
-    await this.updateChannel(channelId, {beneficiary, payer});
+    const {beneficiary, payer} = channelState;
+    await this.updateChannel({beneficiary, payer});
   }
 
   amProposer(channelIdOrChannelState: string | ChannelState): boolean {
