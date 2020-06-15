@@ -1,7 +1,11 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import usePaidStreamingExtension from './pse-middleware';
 import Wire from 'bittorrent-protocol';
-import {PaidStreamingWire, PaidStreamingExtendedHandshake} from './types';
+import {
+  PaidStreamingWire,
+  PaidStreamingExtendedHandshake,
+  BufferedPaidStreamingExtendedHandshake
+} from './types';
 import _ from 'lodash';
 
 const seederOpts = {pseAccount: 'seeder', outcomeAddress: '0xabc'};
@@ -10,10 +14,12 @@ const Seeder = usePaidStreamingExtension(seederOpts);
 const leecherOpts = {pseAccount: 'leecher', outcomeAddress: '0xabc'};
 const Leecher = usePaidStreamingExtension(leecherOpts);
 
-const parseBuffers = (handshake: PaidStreamingExtendedHandshake) =>
+const parseBuffers = (
+  handshake: BufferedPaidStreamingExtendedHandshake
+): PaidStreamingExtendedHandshake =>
   _.mapValues(handshake, val => (Buffer.isBuffer(val) ? val.toString() : val));
 
-it('works', done => {
+test('PaidStreamingExtendedHandshake', done => {
   const eventLog = [];
   const seeder: PaidStreamingWire = (new Wire() as any) as PaidStreamingWire;
   const leecher: PaidStreamingWire = (new Wire() as any) as PaidStreamingWire;
@@ -25,7 +31,7 @@ it('works', done => {
     }
   });
 
-  leecher.on('extended', (event, extendedHandshake) => {
+  leecher.on('extended', (event, extendedHandshake: BufferedPaidStreamingExtendedHandshake) => {
     if (event === 'handshake') {
       eventLog.push('l ex');
       expect(parseBuffers(extendedHandshake)).toMatchObject(seederOpts);
@@ -36,14 +42,14 @@ it('works', done => {
     }
   });
 
-  seeder.on('handshake', (infoHash, peerId, extensions) => {
+  seeder.on('handshake', (infoHash, peerId) => {
     eventLog.push('s hs');
     process.nextTick(() => {
       seeder.handshake(infoHash, peerId);
     });
   });
 
-  leecher.on('handshake', (infoHash, peerId, extensions) => {
+  leecher.on('handshake', (infoHash, peerId) => {
     eventLog.push('l hs');
     process.nextTick(() => {
       seeder.handshake(infoHash, peerId);
