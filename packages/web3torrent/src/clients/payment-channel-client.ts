@@ -1,9 +1,5 @@
 import {utils, constants} from 'ethers';
-import {
-  FakeChannelProvider,
-  ChannelClientInterface,
-  ErrorCode
-} from '@statechannels/channel-client';
+import {ChannelClientInterface, ErrorCode} from '@statechannels/channel-client';
 import {
   ChannelStatus,
   Message,
@@ -32,7 +28,7 @@ export interface Peer {
   outcomeAddress: string;
   balance: string;
 }
-export type Peers = {beneficiary: Peer; payer: Peer};
+export type Peers = {receiver: Peer; payer: Peer};
 
 export const peer = (
   signingAddress: string,
@@ -48,16 +44,16 @@ export interface ChannelState {
   turnNum: utils.BigNumber;
   status: ChannelStatus;
   challengeExpirationTime;
-  beneficiary: Peer;
+  receiver: Peer;
   payer: Peer;
 }
 
-enum Index {
+export enum Index {
   Payer = 1,
-  Beneficiary = 0
+  Receiver = 0
 }
 
-const convertToChannelState = (channelResult: ChannelResult): ChannelState => {
+export const convertToChannelState = (channelResult: ChannelResult): ChannelState => {
   const {
     turnNum,
     channelId,
@@ -72,10 +68,10 @@ const convertToChannelState = (channelResult: ChannelResult): ChannelState => {
     turnNum: utils.bigNumberify(turnNum),
     status,
     challengeExpirationTime,
-    beneficiary: peer(
-      participants[Index.Beneficiary].participantId,
-      participants[Index.Beneficiary].destination,
-      allocations[0].allocationItems[Index.Beneficiary].amount
+    receiver: peer(
+      participants[Index.Receiver].participantId,
+      participants[Index.Receiver].destination,
+      allocations[0].allocationItems[Index.Receiver].amount
     ),
     payer: peer(
       participants[Index.Payer].participantId,
@@ -90,10 +86,10 @@ const convertToChannelState = (channelResult: ChannelResult): ChannelState => {
  * @param peers: Peers
  * Arranges peers in order, as determined by the Index enum.
  */
-const arrangePeers = ({beneficiary, payer}: Peers): [Peer, Peer] => {
+const arrangePeers = ({receiver, payer}: Peers): [Peer, Peer] => {
   const peers: [Peer, Peer] = [undefined, undefined];
   peers[Index.Payer] = payer;
-  peers[Index.Beneficiary] = beneficiary;
+  peers[Index.Receiver] = receiver;
 
   return peers;
 };
@@ -129,21 +125,20 @@ const add = (a: string, b: string) =>
     32
   );
 
-// This class wraps the channel client converting the
-// request/response formats to those used in the app
+/**
+ *
+ * Returns true for channel states where, according to the payment channel client's mySigningAddress,
+ * - the channel is still 'running'
+ * - it's my turn to move
+ */
+const canUpdateChannel = (role: Index) => (state: ChannelState): boolean =>
+  state.status === 'running' &&
+  state.turnNum
+    .add(1)
+    .mod(2)
+    .eq(role);
 
-if (process.env.FAKE_CHANNEL_PROVIDER === 'true') {
-  window.channelProvider = new FakeChannelProvider();
-} else {
-  // TODO: Replace with injection via other means than direct app import
-  // NOTE: This adds `channelProvider` to the `Window` object
-  require('@statechannels/channel-provider');
-}
-
-// This Client targets at _unidirectional_, single asset (ETH) payment channel with 2 participants running on Nitro protocol
-// The beneficiary proposes the channel, but accepts payments
-// The payer joins the channel, and makes payments
-export class PaymentChannelClient {
+abstract class SingleChannelClient {
   get mySigningAddress(): string | undefined {
     return this.channelClient.signingAddress;
   }
@@ -157,16 +152,8 @@ export class PaymentChannelClient {
     public readonly channelId: string,
     public currentState: ChannelState | undefined = undefined
   ) {
-    this.channelStates.subscribe(state => (this.currentState = state));
-  }
-
-  async createChannel(peers: Peers): Promise<any> {
-    return this.channelClient.createChannel(
-      formatParticipants(peers),
-      formatAllocations(peers),
-      SINGLE_ASSET_PAYMENT_CONTRACT_ADDRESS,
-      APP_DATA,
-      FUNDING_STRATEGY
+    this.channelClient.channelState.subscribe(
+      state => (this.currentState = convertToChannelState(state))
     );
   }
 
@@ -174,17 +161,8 @@ export class PaymentChannelClient {
     return this.channelClient.onMessageQueued(callback);
   }
 
-  // Accepts an payment-channel-friendly callback, performs the necessary encoding, and subscribes to the channelClient with an appropriate, API-compliant callback
   onChannelUpdated(web3tCallback: (channelState: ChannelState) => any) {
     return this.channelClient.onChannelUpdated(cr => web3tCallback(convertToChannelState(cr)));
-  }
-
-  onChannelProposed(web3tCallback: (channelState: ChannelState) => any) {
-    return this.channelClient.onChannelProposed(cr => web3tCallback(convertToChannelState(cr)));
-  }
-
-  async joinChannel() {
-    return this.channelClient.joinChannel(this.channelId);
   }
 
   async closeChannel(): Promise<ChannelState> {
@@ -201,32 +179,6 @@ export class PaymentChannelClient {
       .then(convertToChannelState);
   }
 
-  /**
-   *
-   * Returns true for channel states where, according to the payment channel client's mySigningAddress,
-   * - the channel is still 'running'
-   * - it's my turn to move
-   */
-  private canUpdateChannel(state: ChannelState): boolean {
-    const {payer, beneficiary} = state;
-    let myRole: Index;
-    if (payer.signingAddress === this.mySigningAddress) myRole = Index.Payer;
-    else if (beneficiary.signingAddress === this.mySigningAddress) myRole = Index.Beneficiary;
-    else throw 'Not in channel';
-
-    return (
-      state.status === 'running' &&
-      state.turnNum
-        .add(1)
-        .mod(2)
-        .eq(myRole)
-    );
-  }
-
-  get channelStates() {
-    return this.channelClient.channelState.pipe(map(convertToChannelState));
-  }
-
   channelState(channelId): Observable<ChannelState> {
     const newStates = this.channelClient.channelState.pipe(
       filter(cr => cr.channelId === channelId),
@@ -236,11 +188,31 @@ export class PaymentChannelClient {
     return this.currentState ? concat(of(this.currentState), newStates) : newStates;
   }
 
+  async pushMessage(message: Message) {
+    await this.channelClient.pushMessage(message);
+  }
+}
+
+/**
+ * This client allows the user to make payments in a single, unidirectional payment channel running on Nitro protocol
+ * The payer joins the channel, and makes payments.
+ */
+export class PayingChannelClient extends SingleChannelClient {
+  private canUpdateChannel = canUpdateChannel(Index.Payer);
+
+  onChannelProposed(web3tCallback: (channelState: ChannelState) => any) {
+    return this.channelClient.onChannelProposed(cr => web3tCallback(convertToChannelState(cr)));
+  }
+
+  async joinChannel() {
+    return this.channelClient.joinChannel(this.channelId);
+  }
+
   // payer may use this method to make payments (if they have sufficient funds)
   async makePayment(channelId: string, amount: string) {
     let amountWillPay = amount;
     // First, wait for my turn
-    const {payer, beneficiary} = await this.channelState(channelId)
+    const {payer, receiver} = await this.channelState(channelId)
       .pipe(first(cs => this.canUpdateChannel(cs)))
       .toPromise();
 
@@ -257,7 +229,7 @@ export class PaymentChannelClient {
 
     try {
       await this.updateChannel({
-        beneficiary: {...beneficiary, balance: add(beneficiary.balance, amountWillPay)},
+        receiver: {...receiver, balance: add(receiver.balance, amountWillPay)},
         payer: {...payer, balance: subtract(payer.balance, amountWillPay)}
       });
     } catch (error) {
@@ -268,34 +240,37 @@ export class PaymentChannelClient {
       }
     }
   }
+}
 
-  // beneficiary may use this method to accept payments
-  async acceptChannelUpdate(channelState: ChannelState) {
-    const {beneficiary, payer} = channelState;
-    await this.updateChannel({beneficiary, payer});
+/**
+ * This client allows the user to receive payments in a single, unidirectional payment channel running on Nitro protocol
+ * The receiver proposes the channel, and accepts payments
+ */
+export class ReceivingChannelClient extends SingleChannelClient {
+  async createChannel(peers: Peers): Promise<any> {
+    return this.channelClient.createChannel(
+      formatParticipants(peers),
+      formatAllocations(peers),
+      SINGLE_ASSET_PAYMENT_CONTRACT_ADDRESS,
+      APP_DATA,
+      FUNDING_STRATEGY
+    );
   }
 
-  amProposer(channelIdOrChannelState: string | ChannelState): boolean {
-    if (typeof channelIdOrChannelState === 'string') {
-      return this.currentState?.beneficiary.signingAddress === this.mySigningAddress;
-    } else {
-      return channelIdOrChannelState.beneficiary.signingAddress === this.mySigningAddress;
-    }
+  async acceptChannelUpdate(channelState: ChannelState) {
+    const {receiver, payer} = channelState;
+    await this.updateChannel({receiver, payer});
   }
 
   isPaymentToMe(channelState: ChannelState): boolean {
-    // doesn't guarantee that my balance increased
-    if (channelState.beneficiary.signingAddress === this.mySigningAddress) {
+    // WARNING: doesn't guarantee that my balance increased
+    if (channelState.receiver.signingAddress === this.mySigningAddress) {
       return channelState.status === 'running' && channelState.turnNum.mod(2).eq(1);
     }
-    return false; // only beneficiary may receive payments
+    return false; // only receiver may receive payments
   }
 
   shouldSendSpacerState(channelState: ChannelState): boolean {
-    return this.amProposer(channelState) && channelState.turnNum.eq(FINAL_SETUP_STATE);
-  }
-
-  async pushMessage(message: Message) {
-    await this.channelClient.pushMessage(message);
+    return channelState.turnNum.eq(FINAL_SETUP_STATE);
   }
 }
