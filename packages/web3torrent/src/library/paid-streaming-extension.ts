@@ -22,7 +22,7 @@ export abstract class PaidStreamingExtension implements Extension {
   ) {
     this.wire.extendedHandshake.pseAccount = new Buffer(pseAccount);
     this.wire.extendedHandshake.outcomeAddress = new Buffer(pseOutcomeAddress);
-    this.interceptRequests();
+    this.addLogs();
   }
 
   get name(): 'paidStreamingExtension' {
@@ -99,29 +99,15 @@ export abstract class PaidStreamingExtension implements Extension {
     switch (command) {
       case PaidStreamingExtensionNotices.ACK:
         return;
-      case PaidStreamingExtensionNotices.START:
-        log.info(`START received from ${this.peerAccount}`);
-        this.isBeingChoked = false;
-        break;
-      case PaidStreamingExtensionNotices.STOP:
-        log.info(`STOP received from ${this.peerAccount}`);
-        this.leechingChannelId = data;
-        if (this.isBeingChoked) {
-          this.ack();
-          return;
-        }
-        this.isBeingChoked = true;
-        break;
       case PaidStreamingExtensionNotices.MESSAGE:
         data = JSON.parse(data.message);
-        if (data.recipient !== this.pseAccount) {
-          return;
-        }
+        if (data.recipient !== this.pseAccount) return;
+
         log.info({data}, `MESSAGE received from ${this.peerAccount}`);
-        break;
+        this.ack();
+        this.messageBus.emit(PaidStreamingExtensionEvents.MESSAGE, {command, data});
+        return;
     }
-    this.ack();
-    this.messageBus.emit(PaidStreamingExtensionEvents.NOTICE, {command, data});
   }
 
   protected executeExtensionCommand(command: PaidStreamingExtensionNotices, data = {}) {
@@ -138,23 +124,18 @@ export abstract class PaidStreamingExtension implements Extension {
     }
   }
 
-  protected interceptPieces() {
+  protected addLogs() {
     const {wire} = this;
 
-    // for debugging purposes, we log when a piece arrives
-    const _onPiece = wire._onPiece; // handler for the "piece recieved" event
+    const _onPiece = wire._onPiece;
     wire._onPiece = function(index, offset, buffer) {
       _onPiece.apply(wire, [index, offset, buffer]);
       log.trace(`<< _onPiece: ${index} OFFSET: ${offset} DOWNLOADED: ${wire.downloaded}`);
     };
-  }
-
-  protected interceptRequests() {
-    const {wire} = this;
 
     const _onRequest = wire._onRequest;
     wire._onRequest = function(index, offset, length) {
-      log.trace(`_onRequest: ${index}`);
+      log.trace(`<< _onRequest: ${index}`);
       _onRequest.apply(wire, [index, offset, length]);
     };
   }

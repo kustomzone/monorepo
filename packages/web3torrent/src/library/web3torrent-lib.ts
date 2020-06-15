@@ -283,8 +283,8 @@ export default class WebTorrentPaidStreamingClient extends WebTorrent {
       }
     );
 
-    wire.paidStreamingExtension.on(PaidStreamingExtensionEvents.NOTICE, notice => {
-      torrent.emit(PaidStreamingExtensionEvents.NOTICE, wire, notice);
+    wire.paidStreamingExtension.on(PaidStreamingExtensionEvents.MESSAGE, notice => {
+      torrent.emit(PaidStreamingExtensionEvents.MESSAGE, wire, notice);
     });
 
     // If the wallet queues a message, send it across the wire

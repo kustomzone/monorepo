@@ -143,7 +143,7 @@ export abstract class PaidStreamingExtension implements Extension {
         break;
     }
     this.ack();
-    this.messageBus.emit(PaidStreamingExtensionEvents.NOTICE, {command, data});
+    this.messageBus.emit(PaidStreamingExtensionEvents.MESSAGE, {command, data});
   }
 
   protected executeExtensionCommand(command: PaidStreamingExtensionNotices, data = {}) {
