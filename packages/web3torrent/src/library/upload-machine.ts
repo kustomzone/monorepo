@@ -38,7 +38,7 @@ type Events =
   | {type: 'REQUEST'}
   | {type: 'DONE'};
 
-const wireMachine = Machine<Context, Events>({
+const wireMachine = Machine({
   initial: 'setup',
   invoke: {src: 'watcher'},
   states: {

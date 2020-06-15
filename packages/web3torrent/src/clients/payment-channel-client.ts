@@ -14,30 +14,16 @@ import {
   Allocations
 } from '@statechannels/client-api-schema';
 import {DomainBudget} from '@statechannels/client-api-schema';
-import {
-  SINGLE_ASSET_PAYMENT_CONTRACT_ADDRESS,
-  HUB,
-  FIREBASE_PREFIX,
-  fireBaseConfig,
-  FUNDING_STRATEGY,
-  INITIAL_BUDGET_AMOUNT
-} from '../constants';
+import {SINGLE_ASSET_PAYMENT_CONTRACT_ADDRESS, HUB, FUNDING_STRATEGY} from '../constants';
 import {AddressZero} from 'ethers/constants';
-import * as firebase from 'firebase/app';
 import 'firebase/database';
 import {map, filter, first, tap, take} from 'rxjs/operators';
 import {logger} from '../logger';
 import {concat, of, Observable} from 'rxjs';
 import _ from 'lodash';
 
-import {isJsonRpcErrorResponse} from '@statechannels/channel-provider';
-
 const log = logger.child({module: 'payment-channel-client'});
 const hexZeroPad = utils.hexZeroPad;
-
-function sanitizeMessageForFirebase(message) {
-  return JSON.parse(JSON.stringify(message));
-}
 
 const bigNumberify = utils.bigNumberify;
 const FINAL_SETUP_STATE = utils.bigNumberify(3); // for a 2 party ForceMove channel
@@ -160,12 +146,6 @@ if (process.env.FAKE_CHANNEL_PROVIDER === 'true') {
 // The beneficiary proposes the channel, but accepts payments
 // The payer joins the channel, and makes payments
 export class PaymentChannelClient {
-  channelCache: Record<string, ChannelState | undefined> = {};
-  budgetCache?: DomainBudget;
-  _enabled = false;
-  get enabled(): boolean {
-    return this._enabled;
-  }
   get mySigningAddress(): string | undefined {
     return this.channelClient.signingAddress;
   }
@@ -174,102 +154,26 @@ export class PaymentChannelClient {
     return this.channelClient.selectedAddress;
   }
 
-  constructor(readonly channelClient: ChannelClientInterface) {
-    this.channelStates.subscribe(channelResult => this.updateChannelCache(channelResult));
-
-    this.channelClient.onBudgetUpdated(budgetResult => {
-      this.budgetCache = budgetResult;
-    });
+  constructor(
+    readonly channelClient: ChannelClientInterface,
+    public readonly channelId: string,
+    public currentState: ChannelState | undefined = undefined
+  ) {
+    this.channelStates.subscribe(state => (this.currentState = state));
   }
 
-  async initialize() {
-    await this.channelClient.provider.mountWalletComponent(process.env.WALLET_URL);
-    await this.initializeHubComms();
-  }
-
-  async enable() {
-    log.debug('enabling payment channel client');
-
-    await this.channelClient.provider.enable();
-
-    log.debug('payment channel client enabled');
-
-    const doesBudgetExist = async () => {
-      const budget = await this.getBudget();
-      return !!budget && !_.isEmpty(budget);
-    };
-
-    if (FUNDING_STRATEGY !== 'Direct' && !(await doesBudgetExist())) {
-      // TODO: This only checks if a budget exists, not if we have enough funds in it
-      log.debug('Virtual Funding - Creating Budget');
-      await this.createBudget(INITIAL_BUDGET_AMOUNT);
-    }
-    this._enabled = true;
-  }
-
-  private initializeHubComms() {
-    if (!fireBaseConfig) {
-      log.error('Abandoning firebase setup, configuration is undefined');
-      return;
-    }
-
-    if (firebase.apps.length > 0) {
-      log.warn('Firebase app already initialized');
-    } else {
-      // Hub messaging
-      firebase.initializeApp(fireBaseConfig);
-      const myFirebaseRef = firebase
-        .database()
-        .ref(`/${FIREBASE_PREFIX}/messages/${this.mySigningAddress}`);
-      const hubFirebaseRef = firebase
-        .database()
-        .ref(`/${FIREBASE_PREFIX}/messages/${HUB.participantId}`);
-
-      // firebase setup
-      myFirebaseRef.onDisconnect().remove();
-
-      this.onMessageQueued((message: Message) => {
-        if (message.recipient === HUB.participantId) {
-          hubFirebaseRef.push(sanitizeMessageForFirebase(message));
-        }
-      });
-
-      myFirebaseRef.on('child_added', async snapshot => {
-        const key = snapshot.key;
-        const message = snapshot.val();
-        myFirebaseRef.child(key).remove();
-        log.debug({message}, 'GOT FROM FIREBASE: ');
-        await this.pushMessage(message);
-      });
-    }
-  }
-
-  async createChannel(peers: Peers): Promise<ChannelState> {
-    const channelResult = await this.channelClient.createChannel(
+  async createChannel(peers: Peers): Promise<any> {
+    return this.channelClient.createChannel(
       formatParticipants(peers),
       formatAllocations(peers),
       SINGLE_ASSET_PAYMENT_CONTRACT_ADDRESS,
       APP_DATA,
       FUNDING_STRATEGY
     );
-
-    const channelState = convertToChannelState(channelResult);
-    this.insertIntoChannelCache(channelState);
-
-    return channelState;
   }
 
   onMessageQueued(callback: (message: Message) => void) {
     return this.channelClient.onMessageQueued(callback);
-  }
-
-  insertIntoChannelCache(channelState: ChannelState) {
-    this.channelCache[channelState.channelId] = channelState;
-  }
-
-  updateChannelCache(channelState: ChannelState) {
-    this.channelCache[channelState.channelId] && // only update an existing key
-      (this.channelCache[channelState.channelId] = channelState);
   }
 
   // Accepts an payment-channel-friendly callback, performs the necessary encoding, and subscribes to the channelClient with an appropriate, API-compliant callback
@@ -281,66 +185,22 @@ export class PaymentChannelClient {
     return this.channelClient.onChannelProposed(cr => web3tCallback(convertToChannelState(cr)));
   }
 
-  async joinChannel(channelId: string) {
-    const channelResult = await this.channelClient.joinChannel(channelId);
-    this.insertIntoChannelCache(convertToChannelState(channelResult));
+  async joinChannel() {
+    return this.channelClient.joinChannel(this.channelId);
   }
 
-  async closeChannel(channelId: string): Promise<ChannelState> {
-    const MAX_CLOSE_ATTEMPTS = 5;
-    const {unsubscribe} = this.channelState(channelId)
-      .pipe(
-        filter(cs => this.canUpdateChannel(cs)),
-        take(MAX_CLOSE_ATTEMPTS)
-      )
-      .subscribe(
-        async cs => {
-          logger.debug({channelId, cs, me: this.mySigningAddress}, 'Closing payment channel');
-          try {
-            await this.channelClient.closeChannel(channelId);
-          } catch (error) {
-            if (error.error.code === ErrorCode.CloseChannel.NotYourTurn) {
-              // Perhaps the application calls UpdateChannel around the same time as the CloseChannel call.
-              // Is a concurrent UpdateChannel occurring?
-              logger.warn({channelId}, 'Possible race condition detected');
-              return;
-            } else {
-              logger.error({error}, 'Unexpected error');
-              throw error;
-            }
-          }
-        },
-        error => logger.error({error, channelId}, 'Failed to close payment channel'),
-        () => {
-          throw new Error(`CloseChannel failed ${MAX_CLOSE_ATTEMPTS} in a row.`);
-        }
-      );
-
-    return this.channelState(channelId)
-      .pipe(
-        first(cs => cs.status === 'closed'),
-        tap(unsubscribe)
-      )
-      .toPromise();
+  async closeChannel(): Promise<ChannelState> {
+    return this.currentState;
   }
 
-  async challengeChannel(channelId: string): Promise<ChannelState> {
-    const channelResult = await this.channelClient.challengeChannel(channelId);
-    this.updateChannelCache(convertToChannelState(channelResult));
-    return convertToChannelState(channelResult);
+  async challengeChannel(): Promise<ChannelState> {
+    return this.channelClient.challengeChannel(this.channelId).then(convertToChannelState);
   }
 
-  async updateChannel(channelId: string, peers: Peers): Promise<ChannelState> {
-    const channelResult = await this.channelClient.updateChannel(
-      channelId,
-      formatParticipants(peers),
-      formatAllocations(peers),
-      APP_DATA
-    );
-
-    const channelState = convertToChannelState(channelResult);
-    this.updateChannelCache(channelState);
-    return channelState;
+  async updateChannel(peers: Peers): Promise<ChannelState> {
+    return this.channelClient
+      .updateChannel(this.channelId, formatParticipants(peers), formatAllocations(peers), APP_DATA)
+      .then(convertToChannelState);
   }
 
   /**
@@ -375,9 +235,7 @@ export class PaymentChannelClient {
       map(convertToChannelState)
     );
 
-    return this.channelCache[channelId]
-      ? concat(of(this.channelCache[channelId]), newStates)
-      : newStates;
+    return this.currentState ? concat(of(this.currentState), newStates) : newStates;
   }
 
   // payer may use this method to make payments (if they have sufficient funds)
@@ -390,7 +248,7 @@ export class PaymentChannelClient {
 
     if (bigNumberify(payer.balance).eq(0)) {
       logger.error('Out of funds. Closing channel.');
-      await this.closeChannel(channelId);
+      await this.closeChannel();
       return;
     }
 
@@ -421,10 +279,7 @@ export class PaymentChannelClient {
 
   amProposer(channelIdOrChannelState: string | ChannelState): boolean {
     if (typeof channelIdOrChannelState === 'string') {
-      return (
-        this.channelCache[channelIdOrChannelState]?.beneficiary.signingAddress ===
-        this.mySigningAddress
-      );
+      return this.currentState?.beneficiary.signingAddress === this.mySigningAddress;
     } else {
       return channelIdOrChannelState.beneficiary.signingAddress === this.mySigningAddress;
     }
@@ -445,44 +300,4 @@ export class PaymentChannelClient {
   async pushMessage(message: Message) {
     await this.channelClient.pushMessage(message);
   }
-
-  async createBudget(amount: string) {
-    try {
-      this.budgetCache = await this.channelClient.approveBudgetAndFund(
-        amount,
-        amount,
-        HUB.signingAddress,
-        HUB.outcomeAddress
-      );
-    } catch (e) {
-      if (e.message === 'User declined') {
-        log.debug('User declined budget creation');
-        return;
-      } else {
-        throw e;
-      }
-    }
-  }
-
-  async getChannels(): Promise<Record<string, ChannelState | undefined>> {
-    const channelResults = await this.channelClient.getChannels(false);
-    channelResults.map(convertToChannelState).forEach(cr => (this.channelCache[cr.channelId] = cr));
-    return this.channelCache;
-  }
-
-  async getBudget(): Promise<DomainBudget> {
-    this.budgetCache = await this.channelClient.getBudget(HUB.signingAddress);
-    return this.budgetCache;
-  }
-
-  async closeAndWithdraw(): Promise<DomainBudget | {}> {
-    await this.channelClient.closeAndWithdraw(HUB.signingAddress, HUB.outcomeAddress);
-
-    this.budgetCache = undefined;
-    return this.budgetCache;
-  }
 }
-
-export const paymentChannelClient = new PaymentChannelClient(
-  new ChannelClient(window.channelProvider)
-);
